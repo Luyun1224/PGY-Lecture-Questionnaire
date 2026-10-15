@@ -91,8 +91,12 @@ main.wrap{padding-bottom:40px}
 .mod .sb{font-size:12.5px;color:var(--muted)}
 .tile.navy.mod .sb,.tile.red.mod .sb{color:inherit;opacity:.72}
 .mod .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.mod .stats div{font-size:11.5px;font-weight:700;opacity:.75}
-.mod .stats .num{display:block;font-size:26px;line-height:1.15;font-weight:700}
+.mod .stats div{font-size:11.5px;font-weight:700}
+.mod .stats div,.mod .big2 div{color:var(--muted)}
+.tile.navy.mod .stats div,.tile.navy.mod .big2 div{color:#B7C4DE}
+.tile.red.mod .stats div,.tile.red.mod .big2 div{color:#F7D2D5}
+.mod .stats .num{display:block;font-size:26px;line-height:1.15;font-weight:700;color:var(--ink)}
+.tile.navy.mod .num,.tile.red.mod .num{color:#fff}
 .mod .go{font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;letter-spacing:.14em}
 .mod.big .nm{font-size:26px}
 .mod.big .hero{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -184,6 +188,22 @@ tbody tr.click{cursor:pointer}
 .qa .q{font-size:13px;color:var(--muted)}
 .qa .a{grid-column:2;font-size:14px;font-weight:500;white-space:pre-wrap}
 
+/* year-to-date heroes */
+.hero-tile{display:flex;flex-direction:column;justify-content:space-between;min-height:170px}
+.hero-tile .l{font-size:12.5px;font-weight:700}
+.hero-big{font-weight:700;font-size:84px;line-height:.95;margin:10px 0 6px;letter-spacing:-.01em}
+.hero-big small{font-size:24px;font-weight:600;margin-left:6px;opacity:.75;letter-spacing:0}
+.hero-cap{font-size:13.5px;font-weight:700}
+.tile.navy .hero-cap{color:#DCE3F1}.tile.red .hero-cap{color:#FBE3E5}.tile.cream .hero-cap{color:var(--navy)}
+.mod .big2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mod .big2 div{font-size:13px;font-weight:700}
+.mod .big2 .num{display:block;font-size:64px;line-height:1;font-weight:700;margin-bottom:4px;color:var(--navy)}
+.tile.cream.mod .big2 .num{color:var(--navy)}
+.mod .stats{border-top:1px solid rgba(127,127,127,.22);padding-top:10px}
+.mod .stats .num{font-size:20px}
+.ytd-note{padding:12px 20px;font-size:13.5px;color:var(--muted)}
+.ytd-note b{color:var(--navy);font-size:15px}
+@media (max-width:640px){.hero-big{font-size:60px}.hero-tile{min-height:140px}.mod .big2 .num{font-size:48px}}
 /* tracking */
 .trk-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 .trk-bar label{font-size:12.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:6px}
@@ -545,7 +565,7 @@ function pairChart(stats){
 function stacked(rows){
   if(!rows.some(r=>r.dist.some(x=>x))) return '<div class="empty">此期間沒有資料</div>';
   return `<div class="stk">${rows.map(r=>{const n=r.dist.reduce((a,b)=>a+b,0);
-    return `<div class="stk-row"><div class="stk-lab">${esc(r.label)}</div><div class="stk-bar">${r.dist.map((c,i)=>c?`<div style="flex:${c};background:${EPA_COLORS[i]};color:${EPA_INK[i]}" data-tip="${esc(`${r.label}｜Level ${i+1}\n${EPA_DESC[i]}\n${c} 人（${Math.round(c/n*100)}%）`)}">${c/n>=.1?Math.round(c/n*100)+'%':''}</div>`:'').join('')}</div><div class="stk-n">n = ${n}</div></div>`;}).join('')}</div>
+    return `<div class="stk-row"><div class="stk-lab">${esc(r.label)}</div><div class="stk-bar">${r.dist.map((c,i)=>c?`<div style="flex:${c};background:${EPA_COLORS[i]};color:${EPA_INK[i]}" data-tip="${esc(`${r.label}｜Level ${i+1}\n${EPA_DESC[i]}\n${c} 人（${Math.round(c/n*100)}%）`)}">${c/n>=.15?Math.round(c/n*100)+'%':''}</div>`:'').join('')}</div><div class="stk-n">n = ${n}</div></div>`;}).join('')}</div>
     <div class="epa-leg">${EPA_COLORS.map((c,i)=>`<span><i style="background:${c}"></i>L${i+1}　${EPA_DESC[i]}</span>`).join('')}</div>`;
 }
 function choiceChart(rs,it,color){
@@ -571,29 +591,52 @@ function render(){
   bindPage();
 }
 
+/* ---------- 年度累計（以簽到為準） ---------- */
+const THIS_YEAR=String(new Date().getFullYear());
+function yearStats(courseKey){
+  const today=todayStr();
+  const ss=SESS.filter(s=>s.course.key===courseKey&&s.date.startsWith(THIS_YEAR)&&s.date<=today);
+  const att=ss.flatMap(s=>s.att), st=ss.map(sStat);
+  const need=st.reduce((n,t)=>n+t.need,0), got=st.reduce((n,t)=>n+t.got,0);
+  return {sessions:ss.length, headcount:att.length, unique:new Set(att.map(a=>a.id||a.name)).size,
+    pgy:att.filter(a=>/PGY/i.test(a.unit)).length, ugy:att.filter(a=>/UGY/i.test(a.unit)).length,
+    last:ss.map(s=>s.date).sort().pop()||'', rate:need?got/need:null, got, need};
+}
+const ytdLabel=()=>`${THIS_YEAR} 年至今（統計至 ${todayStr().slice(5).replace('-','/')}）`;
+function moduleHero(courseKey){
+  const y=yearStats(courseKey);
+  return `<div class="tile hero-tile navy t-4"><div class="l">${ytdLabel()}</div><div class="hero-big num">${y.sessions}<small>場</small></div><div class="hero-cap">已開課場次${y.last?`　最近一場 ${y.last.slice(5).replace('-','/')}`:''}</div></div>
+    <div class="tile hero-tile red t-4"><div class="l">${ytdLabel()}</div><div class="hero-big num">${y.headcount}<small>人次</small></div><div class="hero-cap">訓練人次　PGY ${y.pgy}／UGY ${y.ugy}</div></div>
+    <div class="tile hero-tile cream t-4"><div class="l">${ytdLabel()}</div><div class="hero-big num">${y.rate==null?'–':Math.round(y.rate*100)}<small>${y.rate==null?'':'%'}</small></div><div class="hero-cap">問卷回收率${y.need?`　${y.got}／${y.need} 份`:'　（本課程不需問卷）'}　·　不重複學員 ${y.unique} 人</div></div>`;
+}
+
 function pageOverview(){
-  const all=FORMS.flatMap(f=>recs(f.key)),people=new Set(all.map(r=>r.id||r.name)),last=all.map(r=>r.time).sort().pop(),P=pairs();
-  let h=kpi('t-3','navy','總填答份數',all.length,'五門課程合計','份')
-       +kpi('t-3','red','參與學員',people.size,'依人事號計算','人')
-       +kpi('t-3','cream','前後測配對',P.length,'急性呼吸道 課前＋課後','人')
-       +(()=>{const ls=sessFiltered(),st=ls.map(sStat),nd=st.reduce((n,t)=>n+t.need,0),gt=st.reduce((n,t)=>n+t.got,0);return kpi('t-3','','問卷回收率',nd?Math.round(gt/nd*100):'–',`簽到 ${st.reduce((n,t)=>n+t.att.length,0)} 人次 · ${gt}/${nd} 份`,nd?'%':'');})();
-  const pre=recs('airway_pre'),post=recs('airway_post');
-  const a=mean(P.map(p=>recMean(p.pre,selfItems(F.airway_pre))).filter(x=>x!=null)),b=mean(P.map(p=>recMean(p.post,selfItems(F.airway_post))).filter(x=>x!=null));
-  const ea=mean(P.map(p=>epa(p.pre.get(epaItem(F.airway_pre).h))).filter(x=>x!=null)),eb=mean(P.map(p=>epa(p.post.get(epaItem(F.airway_post).h))).filter(x=>x!=null));
-  h+=`<button class="tile mod big navy t-6 r-2" data-go="airway">
-      <div><span class="tag-no">01 · PRE / POST</span><div class="nm">急性呼吸道處置</div><div class="sb">自我評估前後測</div></div>
-      <div class="hero"><div>配對自評平均<span class="num">${fmt(a)} → ${fmt(b)}</span></div><div>配對 EPA 平均<span class="num">L${fmt(ea,1)} → L${fmt(eb,1)}</span></div></div>
-      <div class="stats"><div>課前<span class="num">${pre.length}</span></div><div>課後<span class="num">${post.length}</span></div><div>配對<span class="num">${P.length}</span></div></div>
-      <div class="go">查看分析 →</div></button>`;
-  const colors={sim_airway:'',trm:'red',shock:'cream',cvc:''};
-  MODULES.filter(m=>!m.paired).forEach((m,i)=>{
-    const f=F[m.forms[0]],rs=recs(f.key),se=mean(rs.map(r=>recMean(r,selfItems(f))).filter(x=>x!=null)),e=epaStat(rs,f);
-    h+=`<button class="tile mod t-3 ${colors[m.key]}" data-go="${m.key}">
-      <div><span class="tag-no">${String(i+2).padStart(2,'0')}</span><div class="nm">${m.title}</div><div class="sb">${m.sub}</div></div>
-      <div class="stats"><div>填答<span class="num">${rs.length}</span></div><div>${f.key==='sim_airway'?'滿意度':'自評'}<span class="num">${fmt(se)}</span></div><div>EPA<span class="num">${fmt(e.mean,1)}</span></div></div></button>`;
+  const cards=[
+    {key:'airway',color:'navy',sub:'自我評估前後測'},
+    {key:'sim_airway',color:'',sub:'課程回饋表（學員）'},
+    {key:'trm',color:'red',sub:'自我評估問卷'},
+    {key:'shock',color:'cream',sub:'課後評估問卷'},
+    {key:'cvc',color:'',sub:'技能自我評估問卷'},
+    {key:'concept',color:'navy',sub:'僅簽到，不需問卷'}
+  ];
+  let h='';
+  cards.forEach((c,i)=>{
+    const cm=COURSE_MAP.find(x=>x.key===c.key), y=yearStats(c.key);
+    let extra='';
+    if(c.key==='airway'){
+      const P=pairs(),a=mean(P.map(p=>recMean(p.pre,selfItems(F.airway_pre))).filter(x=>x!=null)),b=mean(P.map(p=>recMean(p.post,selfItems(F.airway_post))).filter(x=>x!=null));
+      extra=`<div>問卷回收<span class="num">${y.rate==null?'–':Math.round(y.rate*100)+'%'}</span></div><div>配對自評<span class="num">${fmt(a)}→${fmt(b)}</span></div>`;
+    }else if(cm.forms.length){
+      const f=F[cm.forms[0]],rs=recs(f.key),se=mean(rs.map(r=>recMean(r,selfItems(f))).filter(x=>x!=null));
+      extra=`<div>問卷回收<span class="num">${y.rate==null?'–':Math.round(y.rate*100)+'%'}</span></div><div>${f.key==='sim_airway'?'滿意度':'自評'}平均<span class="num">${fmt(se)}</span></div>`;
+    }else extra=`<div>不重複學員<span class="num">${y.unique}</span></div><div>最近一場<span class="num">${y.last?y.last.slice(5).replace('-','/'):'–'}</span></div>`;
+    h+=`<button class="tile mod ${c.color} t-4" data-go="${c.key==='concept'?'track':c.key}" ${c.key==='concept'?'data-tcourse="concept"':''}>
+      <div><span class="tag-no">${String(i+1).padStart(2,'0')}</span><div class="nm">${esc(cm.name)}</div><div class="sb">${c.sub}</div></div>
+      <div class="big2"><div><span class="num">${y.sessions}</span>場次</div><div><span class="num">${y.headcount}</span>訓練人次</div></div>
+      <div class="stats">${extra}<div>PGY／UGY<span class="num">${y.pgy}／${y.ugy}</span></div></div></button>`;
   });
-  h+=`<div class="tile t-12">${tileH('06','近期課程場次與問卷回收','依簽到紀錄計算；點選一列可到「簽到與回收」看名單',`<button class="btn no-print" style="color:var(--navy)" data-go="track">查看全部 →</button>`)}${sessionsTable(sessFiltered(),8)}</div>`;
-  return h;
+  h+=`<div class="tile t-12">${tileH('07','近期課程場次與問卷回收','依簽到紀錄計算；點選一列可到「簽到與回收」看名單',`<button class="btn no-print" style="color:var(--navy)" data-go="track">查看全部 →</button>`)}${sessionsTable(sessFiltered(),10)}</div>`;
+  return `<div class="tile t-12 ytd-note"><b>${ytdLabel()}</b>　各訓練模組的場次與訓練人次，皆以簽到紀錄為準</div>`+h;
 }
 
 function pageAirway(){
@@ -604,7 +647,7 @@ function pageAirway(){
   const aS=mean(sv.map(x=>x.a)),bS=mean(sv.map(x=>x.b)),aE=mean(ev.map(x=>x.ea)),bE=mean(ev.map(x=>x.eb));
   const stats=UI.pairOnly?pairedItemStats():selfItems(fp).map((it,i)=>({k:it.k,pre:itemStat(pre,it).mean,post:itemStat(post,selfItems(fq)[i]).mean,p:null,n:null}));
   const num=items(fp,'number')[0],nv=pre.map(r=>parseFloat(String(r.get(num.h)).replace(/[^\d.]/g,''))).filter(x=>!isNaN(x));
-  return kpi('t-2','','課前填答',pre.length,'','份')+kpi('t-2','','課後填答',post.length,'','份')+kpi('t-2','cream','前後測配對',P.length,'兩次都有填','人')
+  return moduleHero('airway')+kpi('t-2','','課前填答',pre.length,'','份')+kpi('t-2','','課後填答',post.length,'','份')+kpi('t-2','cream','前後測配對',P.length,'兩次都有填','人')
    +kpi('t-3','navy','自評平均（配對）',`${fmt(aS)}<small>→</small>${fmt(bS)}`,deltaHtml(aS,bS,tS.p))
    +kpi('t-3','red','EPA 平均（配對）',`L${fmt(aE,1)}<small>→</small>L${fmt(bE,1)}`,deltaHtml(aE,bE,tE.p))
    +`<div class="tile t-8 r-2">${tileH('01','自我評估 9 題前後比較',UI.pairOnly?'僅計入配對成功的學員（依人事號，同一人取最近一次），成對 t 檢定':'全部填答者（未配對，不做檢定）',
@@ -627,7 +670,7 @@ function pageSingle(m){
   const sv=rs.map(r=>recMean(r,se)).filter(x=>x!=null),fv=rs.map(r=>recMean(r,fb)).filter(x=>x!=null);
   const isSat=f.key==='sim_airway',selfTitle=isSat?'課程滿意度':'自我評估';
   const sp=fb.length?['t-2','t-2','t-3','t-3','t-2']:['t-3','t-3','t-3','t-3'];
-  let h=kpi(sp[0],'navy','填答份數',rs.length,'','份')+kpi(sp[1],'','參與學員',new Set(rs.map(r=>r.id||r.name)).size,'','人')
+  let h=moduleHero(m.key)+kpi(sp[0],'','填答份數',rs.length,'','份')+kpi(sp[1],'','參與學員',new Set(rs.map(r=>r.id||r.name)).size,'','人')
     +kpi(sp[2],'red',selfTitle+'平均',fmt(mean(sv)),`${se.length} 題，1–5 分`)+kpi(sp[3],'cream','EPA 平均','L'+fmt(e.mean,1),`n = ${e.n}`)
     +(fb.length?kpi(sp[4],'','課程回饋平均',fmt(mean(fv)),`${fb.length} 題`):'');
   h+=`<div class="tile t-8 r-2">${tileH('01',selfTitle+'各題平均（1–5 分）',esc(f.title)+'｜游標移到長條上可看人數分布')}${barChart(rs,se)}</div>
@@ -668,7 +711,7 @@ function showRecord(fk,i){
   document.body.appendChild(m);
 }
 function bindPage(){
-  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{TAB=b.dataset.go;ls.set('ems_dash_tab',TAB);render();window.scrollTo({top:0});});
+  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{if(b.dataset.tcourse){UI.tcourse=b.dataset.tcourse;UI.sess=null;}TAB=b.dataset.go;ls.set('ems_dash_tab',TAB);render();window.scrollTo({top:0});});
   const ps=$('#pairSeg');if(ps)ps.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.pairOnly=b.dataset.v==='1';const y=scrollY;render();scrollTo(0,y);});
   document.querySelectorAll('.qsel').forEach(s=>s.onchange=()=>{UI.qSel[s.dataset.q]=+s.value;const y=scrollY;render();scrollTo(0,y);});
   document.querySelectorAll('[data-recseg]').forEach(seg=>seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.recForm[seg.dataset.recseg]=b.dataset.v;const y=scrollY;render();scrollTo(0,y);}));
