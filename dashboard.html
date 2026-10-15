@@ -184,6 +184,25 @@ tbody tr.click{cursor:pointer}
 .qa .q{font-size:13px;color:var(--muted)}
 .qa .a{grid-column:2;font-size:14px;font-weight:500;white-space:pre-wrap}
 
+/* tracking */
+.trk-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.trk-bar label{font-size:12.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:6px}
+.trk-bar select{border:1.5px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13px;background:#fff}
+.meter-row{display:grid;grid-template-columns:1fr 44px 52px;align-items:center;gap:8px}
+.meter{height:10px;background:var(--grid);border-radius:5px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--navy);border-radius:5px}
+.meter-row b{font-size:15px;text-align:right}
+.meter-row span{font-size:12px;text-align:right}
+tr.sel td{background:#E8EDF6}
+.chip{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:1px 8px;background:var(--soft);color:var(--ink);white-space:nowrap}
+.chip.ok{background:#E8EDF6;color:var(--navy)}
+.chip.no{background:#F8E4E6;color:var(--red)}
+.orph{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+select.trk,input.trk-note{border:1.5px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px;background:#fff;font-family:inherit}
+input.trk-note{min-width:140px}
+#flash{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:9px 18px;border-radius:10px;font-size:13.5px;font-weight:700;opacity:0;transition:all .2s;z-index:70;pointer-events:none}
+#flash.on{opacity:1;transform:translateX(-50%)}
+#flash.bad{background:var(--red)}
 #tip{position:fixed;z-index:60;pointer-events:none;background:var(--navy-d);color:#fff;font-size:12.5px;line-height:1.5;padding:8px 10px;border-radius:8px;max-width:280px;white-space:pre-line;opacity:0;transition:opacity .1s}
 #tip.on{opacity:1}
 .foot{text-align:center;font-size:12px;color:var(--muted);padding:8px 0 28px}
@@ -304,7 +323,7 @@ document.addEventListener('mousemove',e=>{if(!tip.classList.contains('on'))retur
 
 /* ---------- state & data ---------- */
 let RAW=null, DATA={}, TAB=ls.get('ems_dash_tab')||'overview';
-const UI={recForm:{}, recSearch:{}, qSel:{}, pairOnly:true};
+const UI={recForm:{}, recSearch:{}, qSel:{}, pairOnly:true, unit:'', tcourse:'', sess:null};
 
 async function load(){
   if(!/^https:\/\/script\.google\.com\//.test(GAS_URL)){$('#app').innerHTML='<div class="empty">尚未設定 GAS 網址</div>';return;}
@@ -331,6 +350,7 @@ function prepare(){
       r.date=dateOf(r.time); if(r.rank) ranks.add(r.rank); return r;
     }).filter(r=>r.name||r.id);
   });
+  prepareCheckin();
   const sel=$('#fRank'),cur=sel.value;
   sel.innerHTML='<option value="">全部</option>'+[...ranks].sort().map(r=>`<option>${esc(r)}</option>`).join('');
   sel.value=cur;
@@ -350,6 +370,159 @@ function pairedItemStats(){
   return a.map((it,i)=>{const d=[],x=[],y=[];P.forEach(p=>{const s1=score(p.pre.get(it.h)),s2=score(p.post.get(b[i].h));if(s1!=null&&s2!=null){x.push(s1);y.push(s2);d.push(s2-s1);}});return {k:it.k,pre:mean(x),post:mean(y),...pairedT(d)};});
 }
 const modName=f=>f.key.startsWith('airway')?'急性呼吸道處置':(f.short||f.title);
+
+
+/* ---------- 簽到與問卷回收 ---------- */
+const COURSE_MAP=[
+  {key:'airway',topic:'急性呼吸道處置課程',name:'急性呼吸道處置',forms:['airway_pre','airway_post']},
+  {key:'sim_airway',topic:'呼吸道擬真練習1.0',name:'擬真 1.0 急性呼吸道',forms:['sim_airway']},
+  {key:'trm',topic:'急救團隊演練TRM(含高級心臟救命術ACLS)',name:'TRM 急救高效團隊',forms:['trm']},
+  {key:'shock',topic:'休克處置',name:'休克處置',forms:['shock']},
+  {key:'cvc',topic:'中央靜脈導管CVC置放(含超音波導引練習)',name:'中央靜脈導管置入',forms:['cvc']},
+  {key:'concept',topic:'急救概念課',name:'急救概念課',forms:[]}
+];
+const FORM_LABEL={airway_pre:'課前',airway_post:'課後',sim_airway:'回饋表',trm:'問卷',shock:'問卷',cvc:'問卷'};
+const zw=s=>String(s??'').replace(/[​-‍﻿]/g,'');
+function courseOf(topic){const t=norm(zw(topic));return COURSE_MAP.find(c=>norm(c.topic)===t)||{key:'x_'+t,topic:clean(zw(topic)),name:clean(zw(topic)),forms:[]};}
+const pad2=n=>String(n).padStart(2,'0');
+function addDays(d,n){const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;}
+function dayDiff(a,b){return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5);}
+function todayStr(){const x=new Date();return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;}
+const win=(fk,d)=>fk==='airway_pre'?[addDays(d,-7),d]:[d,addDays(d,14)];
+let CHK=[], SESS=[], TRK={}, ATT={};
+
+function prepareCheckin(){
+  const c=RAW.checkin||{headers:[],rows:[]}, idx={};
+  (c.headers||[]).forEach((h,i)=>{const k=norm(h);if(!(k in idx))idx[k]=i;});
+  const g=(row,h)=>{const i=idx[norm(h)];return i==null?'':row[i];};
+  CHK=(c.rows||[]).map(row=>({date:dateOf(g(row,'上課日期'))||dateOf(g(row,'完成時間')),course:courseOf(g(row,'此次課程主題')),name:clean(g(row,'姓名')),id:clean(g(row,'人事號')).toUpperCase(),unit:clean(g(row,'單位')),time:String(g(row,'完成時間')||'')}))
+    .filter(r=>r.date&&(r.name||r.id));
+  TRK={}; ((RAW.track||{}).rows||[]).forEach(r=>{TRK[String(r[0])]={status:String(r[5]||''),note:String(r[6]||''),updated:String(r[7]||'')};});
+  // sessions
+  const map=new Map();
+  CHK.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.time<b.time?-1:1).forEach(r=>{
+    const k=r.date+'|'+r.course.key;
+    if(!map.has(k)) map.set(k,{key:k,date:r.date,course:r.course,att:[],orph:{}});
+    const s=map.get(k), pid=r.id||r.name;
+    if(s.att.some(a=>(a.id||a.name)===pid)) return;
+    const key=`${r.date}|${r.course.key}|${pid}`;
+    s.att.push({...r,key,done:{},trk:TRK[key]||{}});
+  });
+  SESS=[...map.values()];
+  // match questionnaires → attendees (each response used once, nearest date wins)
+  const used=new Set();
+  SESS.forEach(s=>s.course.forms.forEach(fk=>{const [lo,hi]=win(fk,s.date);
+    s.att.forEach(a=>{
+      const pool=(DATA[fk]||[]).filter(r=>!used.has(r)&&r.date>=lo&&r.date<=hi);
+      let c=pool.filter(r=>a.id&&r.id===a.id); if(!c.length) c=pool.filter(r=>a.name&&r.name===a.name);
+      if(!c.length) return;
+      c.sort((x,y)=>Math.abs(dayDiff(s.date,x.date))-Math.abs(dayDiff(s.date,y.date)));
+      a.done[fk]=c[0]; used.add(c[0]);
+    });}));
+  // responses without a sign-in → nearest session of that course
+  FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date).forEach(r=>{
+    let best=null; SESS.filter(s=>s.course.forms.includes(f.key)).forEach(s=>{const [lo,hi]=win(f.key,s.date);if(r.date>=lo&&r.date<=hi&&(!best||Math.abs(dayDiff(s.date,r.date))<Math.abs(dayDiff(best.date,r.date))))best=s;});
+    if(best)(best.orph[f.key]=best.orph[f.key]||[]).push(r);
+  }));
+  ATT={}; SESS.forEach(s=>s.att.forEach(a=>ATT[a.key]={a,s}));
+}
+function unitOk(a){return !UI.unit||a.unit.toUpperCase().includes(UI.unit);}
+function sessFiltered(courseKey){
+  const from=$('#fFrom').value,to=$('#fTo').value;
+  return SESS.filter(s=>(!from||s.date>=from)&&(!to||s.date<=to)&&(!courseKey||s.course.key===courseKey)).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+}
+function sStat(s){
+  const att=s.att.filter(unitOk), ex=att.filter(a=>a.trk.status==='免填'), base=att.filter(a=>a.trk.status!=='免填');
+  const per={}; s.course.forms.forEach(fk=>per[fk]=base.filter(a=>a.done[fk]).length);
+  const need=base.length*s.course.forms.length, got=Object.values(per).reduce((x,y)=>x+y,0);
+  const miss=base.filter(a=>s.course.forms.some(fk=>!a.done[fk]));
+  return {att,ex,base,per,need,got,rate:need?got/need:null,miss,
+    pgy:att.filter(a=>/PGY/i.test(a.unit)).length,ugy:att.filter(a=>/UGY/i.test(a.unit)).length,
+    orph:Object.values(s.orph).reduce((n,l)=>n+l.length,0)};
+}
+function meter(rate,got,need){
+  if(rate==null) return '<span class="muted" style="font-size:12.5px">不需問卷</span>';
+  const pc=Math.round(rate*100);
+  return `<div class="meter-row"><div class="meter"><i style="width:${pc}%;${rate<.6?'background:var(--red)':''}"></i></div><b class="num">${pc}%</b><span class="muted num">${got}/${need}</span></div>`;
+}
+function sessionsTable(list,limit){
+  const rows=limit?list.slice(0,limit):list;
+  if(!rows.length) return '<div class="empty">此期間沒有簽到紀錄</div>';
+  return `<div class="tbl-scroll"><table><thead><tr><th>上課日期</th><th>課程</th><th class="r">簽到</th><th class="r">PGY／UGY</th><th style="min-width:200px">問卷回收率</th><th class="r">未填</th><th class="r">免填</th><th class="r">有填未簽到</th></tr></thead><tbody>
+  ${rows.map(s=>{const t=sStat(s);return `<tr class="click${UI.sess===s.key?' sel':''}" data-sess="${esc(s.key)}"><td class="num">${s.date}</td><td>${esc(s.course.name)}${s.course.key==='airway'?` <span class="muted" style="font-size:12px">課前 ${t.per.airway_pre??0}／課後 ${t.per.airway_post??0}</span>`:''}</td><td class="r num">${t.att.length}</td><td class="r num">${t.pgy}／${t.ugy}</td><td>${meter(t.rate,t.got,t.need)}</td><td class="r num">${t.need?`<b style="color:${t.miss.length?'var(--red)':'inherit'}">${t.miss.length}</b>`:'–'}</td><td class="r num">${t.ex.length||'–'}</td><td class="r num">${t.orph||'–'}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+const statusSel=(a)=>`<select class="trk" data-tk="${esc(a.key)}"><option value="" ${!a.trk.status?'selected':''}>未處理</option><option ${a.trk.status==='已提醒'?'selected':''}>已提醒</option><option ${a.trk.status==='免填'?'selected':''}>免填</option></select>`;
+const noteIn=(a)=>`<input class="trk-note" data-tk="${esc(a.key)}" value="${esc(a.trk.note||'')}" placeholder="備註">`;
+function formChips(s,a){return s.course.forms.map(fk=>a.done[fk]?`<span class="chip ok" data-tip="${esc(`${FORM_LABEL[fk]}已填\n${a.done[fk].time}`)}">✓ ${FORM_LABEL[fk]}</span>`:`<span class="chip no">✕ ${FORM_LABEL[fk]}</span>`).join(' ');}
+
+function pageTrack(){
+  const list=sessFiltered(UI.tcourse), stats=list.map(sStat);
+  const need=stats.reduce((n,t)=>n+t.need,0), got=stats.reduce((n,t)=>n+t.got,0);
+  const people=new Set(list.flatMap(s=>s.att.filter(unitOk).map(a=>a.id||a.name)));
+  const pend=list.flatMap(s=>sStat(s).miss.map(a=>({s,a})));
+  const reminded=pend.filter(x=>x.a.trk.status==='已提醒').length;
+  const courses=[...new Map(SESS.map(s=>[s.course.key,s.course])).values()];
+  let h=`<div class="tile t-12 cream"><div class="trk-bar">
+      <label>課程 <select id="tCourse"><option value="">全部課程</option>${courses.map(c=>`<option value="${c.key}" ${UI.tcourse===c.key?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+      <div class="seg" id="tUnit">${[['','全部'],['PGY','PGY'],['UGY','UGY']].map(([v,l],i)=>`<button data-v="${v}" class="${UI.unit===v?'on':''} ${i===2?'alt':''}">${l}</button>`).join('')}</div>
+      <span class="muted" style="font-size:12.5px">比對方式：人事號（無則姓名）；課前問卷看上課前 7 天內，其餘看上課後 14 天內。標記「免填」不計入回收率。</span></div></div>`;
+  h+=kpi('t-3','navy','課程場次',list.length,`${list.filter(s=>s.course.forms.length).length} 場需填問卷`,'場')
+    +kpi('t-3','','簽到人數',people.size,`共 ${stats.reduce((n,t)=>n+t.att.length,0)} 人次`,'人')
+    +kpi('t-3','red','整體問卷回收率',need?Math.round(got/need*100):'–',`${got} / ${need} 份`,need?'%':'')
+    +kpi('t-3','cream','待追蹤',pend.length,`已提醒 ${reminded} 人`,'人');
+  h+=`<div class="tile t-12">${tileH('01','各場次簽到與回收','點選一列可查看該場次名單與填答狀況')}${sessionsTable(list)}</div>`;
+  const cur=UI.sess&&list.find(s=>s.key===UI.sess);
+  if(cur){const t=sStat(cur);
+    h+=`<div class="tile t-12" id="sessDetail">${tileH('02',`${cur.date}　${esc(cur.course.name)}`,`簽到 ${t.att.length} 人（PGY ${t.pgy}／UGY ${t.ugy}）${t.need?`｜回收 ${t.got}/${t.need}（${Math.round(t.rate*100)}%）`:'｜本課程不需問卷'}`,
+      `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap">${t.miss.length?`<button class="btn" style="color:var(--navy)" data-copy="sess">複製未填名單</button>`:''}<button class="btn" style="color:var(--navy)" id="closeSess">收合</button></div>`)}
+      <div class="tbl-scroll"><table><thead><tr><th>姓名</th><th>人事號</th><th>單位</th>${cur.course.forms.length?'<th>問卷狀態</th><th>追蹤</th><th>備註</th>':''}</tr></thead><tbody>
+      ${t.att.sort((a,b)=>(Object.keys(a.done).length-Object.keys(b.done).length)||a.name.localeCompare(b.name)).map(a=>`<tr><td>${esc(a.name)}</td><td class="num">${esc(a.id)}</td><td>${esc(a.unit)}</td>${cur.course.forms.length?`<td>${formChips(cur,a)}</td><td>${cur.course.forms.every(fk=>a.done[fk])?'<span class="muted">—</span>':statusSel(a)}</td><td>${cur.course.forms.every(fk=>a.done[fk])?'':noteIn(a)}</td>`:''}</tr>`).join('')}</tbody></table></div>
+      ${t.orph?`<div style="margin-top:14px"><b style="font-size:13.5px;color:var(--navy)">有填問卷但沒有簽到紀錄（${t.orph}）</b><div class="orph">${Object.entries(cur.orph).flatMap(([fk,l])=>l.map(r=>`<span class="chip">${esc(r.name)} ${esc(r.id)}・${FORM_LABEL[fk]}・${r.date.slice(5)}</span>`)).join('')}</div><div class="muted" style="font-size:12px;margin-top:4px">可能是忘記簽到或人事號打錯，可到「簽到」工作表補登。</div></div>`:''}</div>`;}
+  const today=todayStr();
+  h+=`<div class="tile t-12">${tileH(cur?'03':'02','待追蹤名單',`簽到了但問卷還沒填完的學員，共 ${pend.length} 人`,pend.length?`<button class="btn no-print" style="color:var(--navy)" data-copy="all">複製名單</button>`:'')}
+    ${pend.length?`<div class="tbl-scroll"><table><thead><tr><th>上課日期</th><th>課程</th><th>姓名</th><th>人事號</th><th>單位</th><th>未填</th><th class="r">已過</th><th>追蹤</th><th>備註</th></tr></thead><tbody>
+    ${pend.map(({s,a})=>`<tr><td class="num">${s.date}</td><td>${esc(s.course.name)}</td><td>${esc(a.name)}</td><td class="num">${esc(a.id)}</td><td>${esc(a.unit)}</td><td>${s.course.forms.filter(fk=>!a.done[fk]).map(fk=>`<span class="chip no">${FORM_LABEL[fk]}</span>`).join(' ')}</td><td class="r num">${dayDiff(s.date,today)} 天</td><td>${statusSel(a)}</td><td>${noteIn(a)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">目前沒有待追蹤的學員 🎉</div>'}</div>`;
+  return h;
+}
+function pendText(items){return items.map(({s,a})=>`${a.name}（${a.id}）｜${s.date} ${s.course.name}｜未填：${s.course.forms.filter(fk=>!a.done[fk]).map(fk=>FORM_LABEL[fk]).join('、')}`).join('\n');}
+async function saveTrack(key,patch){
+  const x=ATT[key]; if(!x) return;
+  const trk={...x.a.trk,...patch}; x.a.trk=trk; TRK[key]=trk;
+  try{
+    const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({form:'track',track:{key,date:x.s.date,course:x.s.course.name,name:x.a.name,id:x.a.id,status:trk.status||'',note:trk.note||''}})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error);
+    flash('已儲存');
+  }catch(e){flash('儲存失敗：'+e.message,true);}
+}
+function flash(msg,bad){let f=$('#flash');if(!f){f=document.createElement('div');f.id='flash';document.body.appendChild(f);}f.textContent=msg;f.className=bad?'bad on':'on';clearTimeout(f._t);f._t=setTimeout(()=>f.className='',1800);}
+function bindTrack(){
+  const tc=$('#tCourse'); if(tc) tc.onchange=()=>{UI.tcourse=tc.value;UI.sess=null;render();};
+  document.querySelectorAll('#tUnit button').forEach(b=>b.onclick=()=>{UI.unit=b.dataset.v;const y=scrollY;render();scrollTo(0,y);});
+  document.querySelectorAll('[data-sess]').forEach(tr=>tr.onclick=()=>{
+    if(TAB!=='track'){TAB='track';ls.set('ems_dash_tab',TAB);}
+    UI.sess=tr.dataset.sess; render(); const d=$('#sessDetail'); if(d) d.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+  const cs=$('#closeSess'); if(cs) cs.onclick=()=>{UI.sess=null;const y=scrollY;render();scrollTo(0,y);};
+  document.querySelectorAll('select.trk').forEach(s=>s.onchange=()=>{saveTrack(s.dataset.tk,{status:s.value});const y=scrollY;render();scrollTo(0,y);});
+  document.querySelectorAll('input.trk-note').forEach(i=>i.onchange=()=>saveTrack(i.dataset.tk,{note:i.value}));
+  document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{
+    const list=sessFiltered(UI.tcourse);
+    const items=b.dataset.copy==='sess'?(()=>{const s=list.find(x=>x.key===UI.sess);return sStat(s).miss.map(a=>({s,a}));})():list.flatMap(s=>sStat(s).miss.map(a=>({s,a})));
+    try{await navigator.clipboard.writeText(pendText(items));flash(`已複製 ${items.length} 人`);}catch(e){flash('無法複製，請改用匯出 Excel',true);}
+  });
+}
+function trackSheets(){
+  const list=sessFiltered(UI.tcourse), today=todayStr();
+  const a1=[['上課日期','課程','簽到人數','PGY','UGY','應回收份數','已回收份數','回收率','未填人數','免填人數','有填未簽到','課前已填','課後已填']];
+  list.forEach(s=>{const t=sStat(s);a1.push([s.date,s.course.name,t.att.length,t.pgy,t.ugy,t.need,t.got,t.rate==null?'':+(t.rate*100).toFixed(1)+'%',t.need?t.miss.length:'',t.ex.length,t.orph,t.per.airway_pre??'',t.per.airway_post??'']);});
+  const a2=[['上課日期','課程','姓名','人事號','單位','問卷狀態','追蹤','備註']];
+  list.forEach(s=>s.att.filter(unitOk).forEach(a=>a2.push([s.date,s.course.name,a.name,a.id,a.unit,s.course.forms.length?s.course.forms.map(fk=>`${FORM_LABEL[fk]}:${a.done[fk]?'已填':'未填'}`).join('、'):'不需問卷',a.trk.status||'',a.trk.note||''])));
+  const a3=[['上課日期','課程','姓名','人事號','單位','未填問卷','已過天數','追蹤','備註']];
+  list.forEach(s=>sStat(s).miss.forEach(a=>a3.push([s.date,s.course.name,a.name,a.id,a.unit,s.course.forms.filter(fk=>!a.done[fk]).map(fk=>FORM_LABEL[fk]).join('、'),dayDiff(s.date,today),a.trk.status||'',a.trk.note||''])));
+  const a4=[['對應場次','課程','問卷','姓名','人事號','填答時間']];
+  list.forEach(s=>Object.entries(s.orph).forEach(([fk,l])=>l.forEach(r=>a4.push([s.date,s.course.name,FORM_LABEL[fk],r.name,r.id,r.time]))));
+  return [[a1,'場次回收率'],[a3,'待追蹤名單'],[a2,'簽到明細'],[a4,'有填問卷未簽到']];
+}
 
 /* ---------- chart builders ---------- */
 const axis=()=>`<div class="hb-axis"><div></div><div>${[0,1,2,3,4,5].map(v=>`<span style="left:${v*20}%">${v}</span>`).join('')}</div><div></div></div>`;
@@ -389,12 +562,12 @@ function deltaHtml(a,b,p){if(a==null||b==null)return '';const d=b-a,c=d>0.005?'u
 
 /* ---------- pages ---------- */
 function render(){
-  const tabs=[['overview','總覽'],...MODULES.map(m=>[m.key,m.title])];
+  const tabs=[['overview','總覽'],['track','簽到與回收'],...MODULES.map(m=>[m.key,m.title])];
   if(!tabs.some(t=>t[0]===TAB)) TAB='overview';
   $('#tabs').innerHTML=tabs.map(([k,t],i)=>`<button data-k="${k}" class="${k===TAB?'on':''} ${i%2?'alt':''}">${t}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{TAB=b.dataset.k;ls.set('ems_dash_tab',TAB);render();window.scrollTo({top:0});});
-  $('#bExport').textContent = TAB==='overview'?'匯出全部 Excel':'匯出本課程 Excel';
-  $('#app').innerHTML = `<div class="bento">${TAB==='overview'?pageOverview():TAB==='airway'?pageAirway():pageSingle(MODULES.find(m=>m.key===TAB))}</div>`;
+  $('#bExport').textContent = TAB==='overview'?'匯出全部 Excel':TAB==='track'?'匯出追蹤名單 Excel':'匯出本課程 Excel';
+  $('#app').innerHTML = `<div class="bento">${TAB==='overview'?pageOverview():TAB==='track'?pageTrack():TAB==='airway'?pageAirway():pageSingle(MODULES.find(m=>m.key===TAB))}</div>`;
   bindPage();
 }
 
@@ -403,7 +576,7 @@ function pageOverview(){
   let h=kpi('t-3','navy','總填答份數',all.length,'五門課程合計','份')
        +kpi('t-3','red','參與學員',people.size,'依人事號計算','人')
        +kpi('t-3','cream','前後測配對',P.length,'急性呼吸道 課前＋課後','人')
-       +kpi('t-3','','最近填答',last?last.slice(5,10).replace('-','/'):'–',last?last.slice(0,4)+' 年 · '+last.slice(11,16):'');
+       +(()=>{const ls=sessFiltered(),st=ls.map(sStat),nd=st.reduce((n,t)=>n+t.need,0),gt=st.reduce((n,t)=>n+t.got,0);return kpi('t-3','','問卷回收率',nd?Math.round(gt/nd*100):'–',`簽到 ${st.reduce((n,t)=>n+t.att.length,0)} 人次 · ${gt}/${nd} 份`,nd?'%':'');})();
   const pre=recs('airway_pre'),post=recs('airway_post');
   const a=mean(P.map(p=>recMean(p.pre,selfItems(F.airway_pre))).filter(x=>x!=null)),b=mean(P.map(p=>recMean(p.post,selfItems(F.airway_post))).filter(x=>x!=null));
   const ea=mean(P.map(p=>epa(p.pre.get(epaItem(F.airway_pre).h))).filter(x=>x!=null)),eb=mean(P.map(p=>epa(p.post.get(epaItem(F.airway_post).h))).filter(x=>x!=null));
@@ -419,11 +592,7 @@ function pageOverview(){
       <div><span class="tag-no">${String(i+2).padStart(2,'0')}</span><div class="nm">${m.title}</div><div class="sb">${m.sub}</div></div>
       <div class="stats"><div>填答<span class="num">${rs.length}</span></div><div>${f.key==='sim_airway'?'滿意度':'自評'}<span class="num">${fmt(se)}</span></div><div>EPA<span class="num">${fmt(e.mean,1)}</span></div></div></button>`;
   });
-  const ses={};
-  FORMS.forEach(f=>recs(f.key).forEach(r=>{const k=r.date+'|'+f.key;(ses[k]=ses[k]||{date:r.date,f,rs:[]}).rs.push(r);}));
-  const list=Object.values(ses).sort((a,b)=>a.date<b.date?1:-1);
-  h+=`<div class="tile t-12">${tileH('06','課程梯次','依填答日期彙整，依上方期間與職級篩選')}
-    ${list.length?`<div class="tbl-scroll"><table><thead><tr><th>日期</th><th>課程</th><th class="r">人數</th><th class="r">自評／滿意度平均</th><th class="r">EPA 平均</th></tr></thead><tbody>${list.map(s=>`<tr><td class="num">${s.date}</td><td>${esc(modName(s.f))}${s.f.key.startsWith('airway')?` <span class="pill ${s.f.key==='airway_pre'?'pre':'post'}">${s.f.key==='airway_pre'?'課前':'課後'}</span>`:''}</td><td class="r num">${s.rs.length}</td><td class="r num">${fmt(mean(s.rs.map(r=>recMean(r,selfItems(s.f))).filter(x=>x!=null)))}</td><td class="r num">${fmt(epaStat(s.rs,s.f).mean,1)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">此期間沒有資料</div>'}</div>`;
+  h+=`<div class="tile t-12">${tileH('06','近期課程場次與問卷回收','依簽到紀錄計算；點選一列可到「簽到與回收」看名單',`<button class="btn no-print" style="color:var(--navy)" data-go="track">查看全部 →</button>`)}${sessionsTable(sessFiltered(),8)}</div>`;
   return h;
 }
 
@@ -448,8 +617,9 @@ function pageAirway(){
     <div class="tile t-12">${tileH('07','個人前後測對照','')}
     ${P.length?`<div class="tbl-scroll"><table><thead><tr><th>姓名</th><th>人事號</th><th>職級</th><th>課前日期</th><th>課後日期</th><th class="r">自評 課前</th><th class="r">自評 課後</th><th class="r">差異</th><th class="c">EPA 課前</th><th class="c">EPA 課後</th></tr></thead><tbody>
     ${P.map((p,i)=>{const x=pm[i],d=x.a!=null&&x.b!=null?x.b-x.a:null;return `<tr><td>${esc(p.post.name)}</td><td class="num">${esc(p.id)}</td><td>${esc(p.post.rank)}</td><td class="num">${p.pre.date}</td><td class="num">${p.post.date}</td><td class="r num">${fmt(x.a)}</td><td class="r num">${fmt(x.b)}</td><td class="r">${d==null?'–':`<span class="delta ${d>0.005?'up':d<-0.005?'down':'flat'}">${d>0?'+':''}${fmt(d)}</span>`}</td><td class="c num">${x.ea?'L'+x.ea:'–'}</td><td class="c num">${x.eb?'L'+x.eb:'–'}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty">尚無配對資料</div>'}</div>
-    ${qualTile('airway_post','08','質性回饋（課後）')}
-    ${recordsTile(['airway_pre','airway_post'],'09')}`;
+    <div class="tile t-12">${tileH('08','場次簽到與問卷回收','依簽到紀錄計算，點選一列查看名單')}${sessionsTable(sessFiltered('airway'))}</div>
+    ${qualTile('airway_post','09','質性回饋（課後）')}
+    ${recordsTile(['airway_pre','airway_post'],'10')}`;
 }
 
 function pageSingle(m){
@@ -463,7 +633,8 @@ function pageSingle(m){
   h+=`<div class="tile t-8 r-2">${tileH('01',selfTitle+'各題平均（1–5 分）',esc(f.title)+'｜游標移到長條上可看人數分布')}${barChart(rs,se)}</div>
       <div class="tile t-4 ${fb.length?'':'r-2'}">${tileH('02','EPA 信任程度分布','')}${stacked([{label:'全部',dist:e.dist}])}</div>
       ${fb.length?`<div class="tile t-4 cream">${tileH('03','課程回饋','1–5 分')}${barChart(rs,fb,'var(--red)')}</div>`:''}
-      ${qualTile(f.key,'04','質性回饋')}${recordsTile([f.key],'05')}`;
+      <div class="tile t-12">${tileH('04','場次簽到與問卷回收','依簽到紀錄計算，點選一列查看名單')}${sessionsTable(sessFiltered(m.key))}</div>
+      ${qualTile(f.key,'05','質性回饋')}${recordsTile([f.key],'06')}`;
   return h;
 }
 
@@ -503,6 +674,7 @@ function bindPage(){
   document.querySelectorAll('[data-recseg]').forEach(seg=>seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.recForm[seg.dataset.recseg]=b.dataset.v;const y=scrollY;render();scrollTo(0,y);}));
   document.querySelectorAll('[data-recq]').forEach(inp=>inp.oninput=()=>{UI.recSearch[inp.dataset.recq]=inp.value;const y=scrollY,pos=inp.selectionStart;render();scrollTo(0,y);const n=document.querySelector(`[data-recq="${inp.dataset.recq}"]`);n.focus();n.setSelectionRange(pos,pos);});
   document.querySelectorAll('[data-rec]').forEach(tr=>tr.onclick=()=>{const [fk,i]=tr.dataset.rec.split('|');showRecord(fk,+i);});
+  bindTrack();
 }
 
 /* ---------- Excel export ---------- */
@@ -529,11 +701,15 @@ function exportExcel(){
   if(typeof XLSX==='undefined'){alert('Excel 元件尚未載入，請確認網路後重新整理');return;}
   const wb=XLSX.utils.book_new(),add=(ws,n)=>XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31));
   const today=new Date().toISOString().slice(0,10).replace(/-/g,'');let name;
-  if(TAB==='overview'){
+  if(TAB==='track'){
+    trackSheets().forEach(([a,n])=>add(XLSX.utils.aoa_to_sheet(a),n));
+    name=`簽到與問卷回收追蹤${filterNote()}_${today}.xlsx`;
+  }else if(TAB==='overview'){
     const ov=[['課程','問卷','填答份數','自評／滿意度平均','EPA 平均']];
     FORMS.forEach(f=>{const rs=recs(f.key);ov.push([modName(f),f.title+(f.key.startsWith('airway')?'（'+f.tag+'）':''),rs.length,+(mean(rs.map(r=>recMean(r,selfItems(f))).filter(x=>x!=null))||0).toFixed(2),+(epaStat(rs,f).mean||0).toFixed(2)]);});
     add(XLSX.utils.aoa_to_sheet(ov),'總覽');
     const [ps,pst]=pairSheets();add(pst,'呼吸道_前後測統計');add(ps,'呼吸道_個人配對');
+    trackSheets().slice(0,2).forEach(([a,n])=>add(XLSX.utils.aoa_to_sheet(a),n));
     FORMS.forEach(f=>{add(rawSheet(f.key),f.sheet+'_紀錄');add(statSheet(f.key),f.sheet+'_統計');});
     name=`急救模組問卷_全部${filterNote()}_${today}.xlsx`;
   }else if(TAB==='airway'){
