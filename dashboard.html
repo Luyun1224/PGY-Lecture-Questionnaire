@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>急救模組課程成效儀表板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --red:#C8202F; --red-d:#A3172A; --navy:#1E3A6E; --navy-d:#14284D;
+  --paper:#F6F3EC; --cream:#ECE5D6; --card:#FFFFFF; --line:#E2DED4; --grid:#ECE8DF; --ink:#1A2233; --muted:#6A7080; --soft:#F4F1EA;
+  --pre:#1E3A6E; --post:#C8202F; --bar:#1E3A6E;
+  --up:#1F7A4D; --down:#B42318;
+  --gap:10px; --r:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.55;font-size:14.5px}
+button,select,input{font-family:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.num{font-family:"Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+
+/* ===== mosaic grid ===== */
+.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--gap);grid-auto-flow:row dense}
+.tile{position:relative;background:var(--card);border-radius:var(--r);padding:18px 20px;min-width:0;overflow:hidden}
+.t-2{grid-column:span 2}.t-3{grid-column:span 3}.t-4{grid-column:span 4}.t-6{grid-column:span 6}.t-8{grid-column:span 8}.t-12{grid-column:span 12}
+.r-2{grid-row:span 2}
+.tile.navy{background:var(--navy);color:#fff}
+.tile.red{background:var(--red);color:#fff}
+.tile.cream{background:var(--cream)}
+.tile.navy .l,.tile.navy .s{color:#B7C4DE}
+.tile.red .l,.tile.red .s{color:#F7D2D5}
+.tile-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.tile-h h3{font-size:15.5px;font-weight:900;color:var(--navy);letter-spacing:.02em;line-height:1.4}
+.tile.navy .tile-h h3,.tile.red .tile-h h3{color:#fff}
+.tile-h .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+.tile.navy .tile-h .d{color:#B7C4DE}
+.tag-no{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13px;letter-spacing:.14em;color:var(--red);display:block;margin-bottom:2px}
+.tile.red .tag-no{color:#fff;opacity:.75}
+.tile.navy .tag-no{color:#F3A3AA}
+.empty{color:var(--muted);font-size:13.5px;padding:18px 0;text-align:center}
+
+/* header mosaic */
+header.wrap{padding-top:16px}
+.head .title-tile{background:var(--red);color:#fff;min-height:168px;display:flex;flex-direction:column;justify-content:flex-end;padding:22px 24px}
+.head .title-tile svg{position:absolute;inset:0;width:100%;height:100%}
+.head .title-tile > span,.head .title-tile > h1{position:relative}
+.kicker{font-family:"Barlow Condensed",sans-serif;font-weight:600;letter-spacing:.22em;font-size:12.5px;text-transform:uppercase;opacity:.85}
+.head h1{font-weight:900;font-size:clamp(26px,4.2vw,40px);line-height:1.12;letter-spacing:.02em;margin-top:4px}
+.head .meta-tile{background:var(--navy);color:#fff;display:flex;flex-direction:column;justify-content:space-between;gap:14px}
+.head .meta-tile .l{font-size:12.5px;color:#B7C4DE;font-weight:700}
+.head .meta-tile .v{font-family:"Barlow Condensed",sans-serif;font-size:22px;font-weight:600;line-height:1.2}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acts .full{grid-column:1/-1}
+.btn{display:inline-flex;justify-content:center;align-items:center;gap:6px;border:1.5px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:8px 12px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s}
+.meta-tile .btn{color:#fff;border-color:rgba(255,255,255,.45)}
+.meta-tile .btn:hover{background:rgba(255,255,255,.1)}
+.meta-tile .btn.red{background:var(--red);border-color:var(--red)}
+.meta-tile .btn.red:hover{background:var(--red-d)}
+
+/* nav tile */
+.navbar{position:sticky;top:0;z-index:30;padding:var(--gap) 0;background:var(--paper)}
+.navbar .tile{padding:8px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1 1 100%;min-width:0}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;border:0;background:transparent;color:var(--muted);font-size:14px;font-weight:700;padding:8px 14px;cursor:pointer;border-radius:10px;white-space:nowrap;transition:all .15s}
+.tabs button:hover{color:var(--navy);background:var(--soft)}
+.tabs button.on{background:var(--navy);color:#fff}
+.tabs button.on.alt{background:var(--red)}
+.filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:4px 6px 2px;border-top:1px solid var(--grid);flex:1 1 100%}
+.filters label{font-size:12.5px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+.filters input,.filters select{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:5px 8px;font-size:13px;color:var(--ink)}
+
+main.wrap{padding-bottom:40px}
+
+/* KPI tiles */
+.kpi .l{font-size:12.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:40px;line-height:1.05;margin-top:6px;white-space:nowrap}
+.kpi .v small{font-size:17px;font-weight:600;margin:0 2px;opacity:.7}
+.kpi .s{font-size:12.5px;color:var(--muted);margin-top:4px}
+.delta{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:15px}
+.delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.flat{color:var(--muted)}
+.tile.navy .delta,.tile.red .delta{color:#fff}
+
+/* module tiles */
+.mod{cursor:pointer;border:0;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;justify-content:space-between;gap:14px;transition:transform .15s,box-shadow .15s}
+.mod:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(20,40,77,.14)}
+.mod .nm{font-size:17px;font-weight:900;line-height:1.3}
+.mod .sb{font-size:12.5px;color:var(--muted)}
+.tile.navy.mod .sb,.tile.red.mod .sb{color:inherit;opacity:.72}
+.mod .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mod .stats div{font-size:11.5px;font-weight:700;opacity:.75}
+.mod .stats .num{display:block;font-size:26px;line-height:1.15;font-weight:700}
+.mod .go{font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;letter-spacing:.14em}
+.mod.big .nm{font-size:26px}
+.mod.big .hero{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mod.big .hero .num{font-size:42px;display:block;line-height:1.05;white-space:nowrap}
+.mod.big .hero div{font-size:12.5px;opacity:.85;font-weight:700}
+.mod.big .stats{border-top:1px solid rgba(255,255,255,.18);padding-top:12px}
+
+/* horizontal bars */
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.hb{display:grid;gap:10px}
+.hb-row{display:grid;grid-template-columns:140px 1fr 86px;align-items:center;gap:10px}
+.hb-lab{font-size:13px;line-height:1.35}
+.hb-track{position:relative;display:grid;gap:2px;padding:2px 0;background:linear-gradient(to right,var(--grid) 1px,transparent 1px) 0 0/20% 100% repeat-x}
+.tile.cream .hb-track{background:linear-gradient(to right,#DCD3BF 1px,transparent 1px) 0 0/20% 100% repeat-x}
+.hb-track::after{content:"";position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--grid)}
+.hb-bar{height:14px;border-radius:0 4px 4px 0;background:var(--bar);min-width:2px;position:relative;z-index:1;cursor:default}
+.hb-bar.pre{background:var(--pre);height:11px}
+.hb-bar.post{background:var(--post);height:11px}
+.hb-bar:hover{filter:brightness(1.18)}
+.hb-val{font-size:13px;text-align:right;line-height:1.3}
+.hb-val .num{font-size:16px;font-weight:700}
+.hb-val .p{display:block;font-size:11px;color:var(--muted)}
+.hb-axis{display:grid;grid-template-columns:140px 1fr 86px;gap:10px;margin-top:4px}
+.hb-axis div:nth-child(2){position:relative;height:16px}
+.hb-axis span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--muted)}
+.hb-axis span:first-child{transform:none}
+.hb-axis span:last-child{transform:translateX(-100%)}
+
+/* stacked */
+.stk{display:grid;gap:12px}
+.stk-row{display:grid;grid-template-columns:44px 1fr 48px;gap:10px;align-items:center}
+.stk-lab{font-size:13px;font-weight:700;color:var(--navy)}
+.stk-bar{display:flex;gap:2px;height:28px}
+.stk-bar div{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;overflow:hidden;cursor:default}
+.stk-bar div:first-child{border-radius:6px 0 0 6px}
+.stk-bar div:last-child{border-radius:0 6px 6px 0}
+.stk-bar div:only-child{border-radius:6px}
+.stk-n{font-size:12px;color:var(--muted);text-align:right}
+.epa-leg{display:grid;gap:4px;margin-top:14px;font-size:12px;color:var(--muted)}
+.epa-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;border:1px solid rgba(0,0,0,.06)}
+
+/* mini stats */
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mini div{font-size:12px;font-weight:700;opacity:.8}
+.mini .num{display:block;font-size:32px;line-height:1.1;opacity:1}
+.mini .num small{font-size:14px;opacity:.7;margin-left:2px}
+
+/* tables */
+.tbl-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tbl-tools input{border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13.5px;min-width:180px;flex:1;max-width:300px}
+.seg{display:inline-flex;background:var(--soft);border-radius:10px;padding:3px;gap:2px;flex:none}
+.seg button{border:0;background:transparent;color:var(--navy);padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px}
+.seg button.on{background:var(--navy);color:#fff}
+.seg button.on.alt{background:var(--red)}
+.upd{font-size:12px;color:var(--muted)}
+.tbl-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--grid)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{background:var(--soft);color:var(--navy);font-weight:700;text-align:left;padding:9px 12px;white-space:nowrap}
+td{padding:9px 12px;border-top:1px solid var(--grid);white-space:nowrap}
+td.r,th.r{text-align:right} td.c,th.c{text-align:center}
+tbody tr:hover{background:#FAF8F3}
+tbody tr.click{cursor:pointer}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:4px;padding:0 7px;color:#fff}
+.pill.pre{background:var(--navy)} .pill.post{background:var(--red)}
+
+/* qualitative */
+.qsel{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13.5px;background:#fff;margin-bottom:10px;color:var(--ink)}
+.quotes{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;max-height:520px;overflow:auto}
+.quote{padding:12px 14px;background:var(--soft);border-radius:12px;display:flex;flex-direction:column;gap:6px}
+.quote:nth-child(5n+2){background:#E7ECF5}
+.quote:nth-child(5n+4){background:#F8E4E6}
+.quote .txt{font-size:13.5px;white-space:pre-wrap;word-break:break-word;flex:1}
+.quote .who{font-size:12px;font-weight:700;color:var(--navy)}
+.quote .who span{font-weight:500;color:var(--muted);margin-left:6px}
+
+.loading{text-align:center;color:var(--muted);padding:60px 0}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(20,40,77,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#fff;border-radius:16px;max-width:720px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px;background:var(--navy);color:#fff}
+.modal-h b{font-size:17px}
+.modal-h span{display:block;font-size:12.5px;color:#B7C4DE}
+.modal-h button{border:0;background:transparent;font-size:24px;color:#fff;cursor:pointer;line-height:1}
+.modal-b{overflow:auto;padding:8px 20px 20px}
+.qa{display:grid;grid-template-columns:28px 1fr;gap:4px 8px;padding:10px 0;border-bottom:1px solid var(--grid)}
+.qa .n{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--red)}
+.qa .q{font-size:13px;color:var(--muted)}
+.qa .a{grid-column:2;font-size:14px;font-weight:500;white-space:pre-wrap}
+
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--navy-d);color:#fff;font-size:12.5px;line-height:1.5;padding:8px 10px;border-radius:8px;max-width:280px;white-space:pre-line;opacity:0;transition:opacity .1s}
+#tip.on{opacity:1}
+.foot{text-align:center;font-size:12px;color:var(--muted);padding:8px 0 28px}
+
+@media (max-width:980px){
+  .t-2,.t-3,.t-4{grid-column:span 6}
+  .t-6,.t-8{grid-column:span 12}
+  .r-2{grid-row:auto}
+}
+@media (max-width:640px){
+  .bento{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .t-2,.t-3{grid-column:span 1}
+  .t-4,.t-6,.t-8,.t-12{grid-column:span 2}
+  .navbar{position:static}
+  .tile{padding:16px}
+  .kpi .v{font-size:28px}
+  .hb-row,.hb-axis{grid-template-columns:90px 1fr 64px;gap:6px}
+  .hb-lab{font-size:12px}
+  .mod.big .hero{grid-template-columns:1fr}
+  .mod.big .hero .num{font-size:32px}
+  .mod .stats .num{font-size:22px}
+  .head .title-tile{min-height:140px}
+}
+@media print{
+  body{background:#fff;font-size:12px}
+  .navbar,.acts,.tbl-tools,.seg,.no-print,#tip{display:none!important}
+  .tile{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .quotes{max-height:none;overflow:visible}
+  .tbl-scroll{overflow:visible}
+}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="bento head">
+    <div class="tile title-tile t-8">
+      <svg id="art" viewBox="0 0 800 170" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <span class="kicker">PGY · Emergency Module · Dashboard</span>
+      <h1>急救模組課程<br>成效儀表板</h1>
+    </div>
+    <div class="tile meta-tile t-4">
+      <div><div class="l">資料更新時間</div><div class="v" id="upd">讀取中…</div></div>
+      <div class="acts">
+        <button class="btn" id="bReload">↻ 重新整理</button>
+        <button class="btn" id="bPrint">列印／PDF</button>
+        <button class="btn red full" id="bExport">匯出 Excel</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="navbar"><div class="wrap"><div class="tile">
+  <nav class="tabs" id="tabs"></nav>
+  <div class="filters">
+    <label>期間 <input type="date" id="fFrom"> ～ <input type="date" id="fTo"></label>
+    <label>職級 <select id="fRank"><option value="">全部</option></select></label>
+  </div>
+</div></div></div>
+
+<main class="wrap" id="app"><div class="loading">載入中…</div></main>
+<div class="foot">奇美醫院教學部臨床技能中心．一般內科．急診醫學部</div>
+<div id="tip"></div>
+
+<script>
+/* ★ GAS 網頁應用程式網址 ★ */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbydvnST-K9sQ3l3jgDMtX0Rg9uEjNgqOmPf_HCrMQMrLtBSzBhuQg0r5JNHBrSp7w9Mng/exec';
+const FORMS = [{"key": "airway_pre", "sheet": "急性呼吸道_課前", "title": "急性呼吸道處置自我評估問卷", "tag": "課前", "desc": "請依您「上課前」的實際狀況作答，結果僅用於課程設計與前後測比較。", "month": "目前為第幾個月的內科訓練", "sections": [{"title": "插管經驗", "items": [{"type": "choice", "h": "您在「模型／模擬情境」中練習過插管的次數：", "opts": ["0 次", "1-5 次", "6-10 次", "超過 10 次"]}, {"type": "choice", "h": "您實際在「真實病人」身上執行過氣管內插管的次數", "opts": ["0 次", "1-5 次", "6-10 次", "超過 10 次"]}, {"type": "number", "h": "您過去 3 個月內大約曾參與真實的急救／插管現場（含旁觀）次數？", "unit": "次"}]}, {"title": "自我評估", "items": [{"type": "likert", "h": "我了解急性呼吸道處置所需的解剖結構和生理知識。", "scale": "know", "k": "解剖與生理知識"}, {"type": "likert", "h": "我了解插管的適應症、禁忌症與 RSI 用藥原則。", "scale": "know", "k": "插管適應症／RSI 用藥"}, {"type": "likert", "h": "我認為自己具備正確選擇呼吸道支持用具和操作喉鏡的能力。", "scale": "able", "k": "選擇用具與操作喉鏡"}, {"type": "likert", "h": "我能夠準確地插入氣管內管並確認其正確位置。", "scale": "able", "k": "插管並確認位置"}, {"type": "likert", "h": "在實際臨床環境（例如值班）中，我感到自己能夠成功地對患者執行急性呼吸道處置。", "scale": "conf", "k": "臨床執行自信"}, {"type": "likert", "h": "我能夠在高壓情境下（如值班急救場景）進行有效的急性呼吸道處置（包含氣管內插管）。", "scale": "conf", "k": "高壓情境處置"}, {"type": "likert", "h": "我有動力進一步提升和精進我的急性呼吸道處置技能。", "scale": "motiv", "k": "精進動力"}, {"type": "likert", "h": "面對需要緊急插管的病人，我能維持冷靜並依既定步驟進行。", "scale": "agree", "k": "冷靜依步驟進行"}, {"type": "likert", "h": "當我無法順利完成插管時，我知道該如何求援並啟動備援方案。", "scale": "agree", "k": "求援與備援方案"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度 EPA自評-對於急性呼吸道處置，我認為自己："}]}]}, {"key": "airway_post", "sheet": "急性呼吸道_課後", "title": "急性呼吸道處置自我評估問卷", "tag": "課後／質性問題", "desc": "請依您「上完課後」的實際狀況作答，結果將與課前問卷比較，作為課程改善依據。", "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解急性呼吸道處置所需的解剖結構和生理知識。", "scale": "know", "k": "解剖與生理知識"}, {"type": "likert", "h": "我了解插管的適應症、禁忌症與 RSI 用藥原則。", "scale": "know", "k": "插管適應症／RSI 用藥"}, {"type": "likert", "h": "我具備正確選擇呼吸道支持用具與操作喉鏡的能力。", "scale": "able", "k": "選擇用具與操作喉鏡"}, {"type": "likert", "h": "我能夠準確地插入氣管內管並確認其正確位置。", "scale": "able", "k": "插管並確認位置"}, {"type": "likert", "h": "在實際臨床環境（例如值班）中，我能成功地對病人執行急性呼吸道處置。", "scale": "conf", "k": "臨床執行自信"}, {"type": "likert", "h": "我能夠在高壓情境下（如值班急救場景）進行有效的急性呼吸道處置（包含氣管內插管）。", "scale": "conf", "k": "高壓情境處置"}, {"type": "likert", "h": "我有動力進一步提升和精進我的急性呼吸道處置技能。", "scale": "motiv", "k": "精進動力"}, {"type": "likert", "h": "面對需要緊急插管的病人，我能維持冷靜並依既定步驟進行。", "scale": "agree", "k": "冷靜依步驟進行"}, {"type": "likert", "h": "當我無法順利完成插管時，我知道該如何求援並啟動備援方案。", "scale": "agree", "k": "求援與備援方案"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度 EPA自評-對於急性呼吸道處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次課程對提升我的急性呼吸道處置技能非常有幫助", "scale": "agree", "k": "課程有幫助"}, {"type": "likert", "h": "課程的教學方式（講授、情境演練、模擬操作）安排恰當。", "scale": "agree", "k": "教學方式恰當"}, {"type": "likert", "h": "我會想參加下一次類似的課程", "scale": "agree", "k": "想再參加"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "(反思與回饋) 經過這堂課後，關於急性呼吸道處置，請列出三個（或更多）您「最想記得」或「最想加強」的知識點或技巧。", "optional": false}, {"type": "text", "h": "(反思與回饋) 針對上一題所列的「尚不熟悉」之處，您打算如何改善？教學部或科部可以提供什麼協助？", "optional": false}, {"type": "text", "h": "(反思與回饋) 在進行急性呼吸道處置操作時，您覺得有哪些因素增強了您的自信心？又有哪些因素可能削弱了您的自信心？", "optional": false}, {"type": "text", "h": "(反思與回饋) 您是否已經準備好進入臨床執行急性呼吸道處置，在進行處置操作時如何應對壓力或緊張情緒？有哪些策略或技巧對您有幫助？", "optional": false}, {"type": "text", "h": "(反思與回饋)  關於本次課程的教學方法（講授、模擬訓練），您認為有哪些優點與待改進之處？對未來的訓練形式有什麼建議？", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？", "optional": false}]}]}, {"key": "sim_airway", "sheet": "擬真1.0_呼吸道回饋", "title": "擬真1.0－急性呼吸道處置課程回饋表", "short": "擬真 1.0 急性呼吸道處置", "tag": "課程問卷", "desc": "高擬真情境模擬課程結束後填寫。", "month": "目前為第幾個月內科訓練", "sections": [{"title": "課程滿意度", "items": [{"type": "likert", "h": "教師對課程主題的掌握程度與講解清晰度", "scale": "satisfy", "k": "教師掌握與講解"}, {"type": "likert", "h": "課程內容對急性呼吸道處置技能提升的幫助", "scale": "satisfy", "k": "技能提升幫助"}, {"type": "likert", "h": "模擬情境的真實性與實用性", "scale": "satisfy", "k": "情境真實與實用"}, {"type": "likert", "h": "教師提供的指導與即時回饋", "scale": "satisfy", "k": "指導與即時回饋"}, {"type": "likert", "h": "課程對您臨床(或值班)自信心的提升", "scale": "satisfy", "k": "臨床自信提升"}, {"type": "likert", "h": "在課程中能否感受到支持與學習動力", "scale": "satisfy", "k": "支持與學習動力"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "對於急性呼吸道處置，我認為自己："}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "請描述課程中您覺得最有幫助的內容或活動，為什麼？", "optional": false}, {"type": "text", "h": "您對此次急性呼吸道處置技能學習的總體感受如何？有沒有什麼建議讓這門課更有價值？", "optional": false}, {"type": "text", "h": "您覺得本次訓練的教學方法（如講授、模擬訓練）有哪些優點和缺點？有什麼地方可以改進以更好地幫助您學習急性呼吸道處置技能？", "optional": false}, {"type": "text", "h": "在進行急性呼吸道處置操作時，您覺得有哪些因素增強了您的自信心？又有哪些因素可能削弱了您的自信心？", "optional": false}, {"type": "text", "h": "您覺得自己是否已準備好在臨床環境中進行急性呼吸道處置？如果不夠準備，您認為還需要進行哪些準備或訓練？", "optional": false}, {"type": "text", "h": "您在進行急性呼吸道處置操作時如何應對壓力或緊張情緒？有哪些策略或技巧對您有幫助？", "optional": false}, {"type": "text", "h": "經過這堂課後，請列出三個(或更多)「最想記得」或「最想加強」的知識點？或有哪些特定的技巧您覺得還不夠熟練？ (問卷後回答會傳給您)", "optional": false}, {"type": "text", "h": "針對上一題，有關「不熟悉的知識或技能」，想想看之後能怎麼改善（或教學部能如何幫忙）？", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？(ex. 特別的經驗或收穫分享？)", "optional": false}]}]}, {"key": "trm", "sheet": "TRM急救團隊", "title": "TRM 急救高效團隊操作自我評估問卷", "short": "TRM 急救高效團隊操作", "tag": "課程問卷", "desc": "急救高效能團隊（TRM）演練結束後填寫。", "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解高效 ACLS 團隊運作的基本原則（例如溝通、 角色分配、領導）。", "scale": "know", "k": "ACLS 團隊原則"}, {"type": "likert", "h": "我能夠在 ACLS 操作中有效執行分配給我的角色。", "scale": "able", "k": "執行分配角色"}, {"type": "likert", "h": "我能在團隊中適當地擔任領導者角色並指導其他成員。", "scale": "able", "k": "擔任領導者"}, {"type": "likert", "h": "我在臨床急救場景中能夠勝任 ACLS 團隊的一員，並 協助進行有效的搶救。", "scale": "conf", "k": "勝任團隊成員"}, {"type": "likert", "h": "我有動力提升我在 ACLS 團隊操作中的表現。", "scale": "motiv", "k": "提升表現動力"}, {"type": "likert", "h": "我能在高壓情境（如心跳停止的急救中）保持冷靜並有 效地進行操作。", "scale": "can", "k": "高壓下保持冷靜"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度 EPA自評-對於執行 ACLS 處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次訓練課程對提升我的急救處置技能非常有幫助。", "scale": "agree", "k": "課程有幫助"}, {"type": "likert", "h": "會想來參加下一次類似的課程？", "scale": "agree", "k": "想再參加"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "(有關反思) 經過這堂課後，有關急救高效能團隊(TRM)練習，請列出三個(或更多)「最想記得」或「最想加強」的知識點？或有哪些特定的技巧您覺得還不夠熟練？ (問卷後回答會傳給您)", "optional": false}, {"type": "text", "h": "(有關反思) 針對上一題，有關「不熟悉的知識或技能」，想想看之後能怎麼改善 (或教學部能如何幫忙)？", "optional": false}, {"type": "text", "h": "(有關反思) 在進行急救高效能團隊(TRM)演練時，哪些因素增強了您的自信心？又有哪些因素可能削弱了您的自信心？", "optional": false}, {"type": "text", "h": "(有關反思) 您是否覺得自己已準備好在臨床情境中進行急救高效能團隊(TRM)操作？", "optional": false}, {"type": "text", "h": "(有關反思) 在急救團隊演練時，您如何應對壓力或緊張情緒？有哪些策略或技巧對您有所幫助？", "optional": false}, {"type": "text", "h": "(有關課程) 謝謝您的參與，辛苦了 :) 想請問這堂課最令您印象深刻的是什麼？有沒有什麼特別的收穫或經驗想分享？", "optional": false}, {"type": "text", "h": "(有關課程) 您覺得本次訓練的教學方法（如講授、模擬訓練）有哪些優點和缺點？有什麼地方可以改進以更好地幫助您學習急救高效能團隊(TRM)？", "optional": false}, {"type": "text", "h": "您對於未來急救相關的訓練有何建議？您認為哪些方面的訓練也許會更有效？(自由選填)", "optional": true}]}]}, {"key": "shock", "sheet": "休克處置", "title": "休克處置課後評估問卷", "short": "休克處置", "tag": "課程問卷", "desc": "休克處置課程結束後填寫。", "draft": true, "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解休克的分類（低血容性、心因性、分佈性、阻塞性）與其病生理機轉。", "scale": "know", "k": "休克分類與機轉"}, {"type": "likert", "h": "我能夠依據臨床表現、檢查數據與床邊超音波判斷休克的類型。", "scale": "able", "k": "判斷休克類型"}, {"type": "likert", "h": "我能夠正確執行休克的初步處置（輸液復甦、升壓劑選擇與使用）。", "scale": "able", "k": "休克初步處置"}, {"type": "likert", "h": "在實際臨床環境（例如值班）中，我對於處置休克病人感到自信。", "scale": "conf", "k": "臨床處置自信"}, {"type": "likert", "h": "我有動力進一步提升和精進我的休克處置技能。", "scale": "motiv", "k": "精進動力"}, {"type": "likert", "h": "我能夠在高壓情境下（如值班急救場景）進行有效的休克處置。", "scale": "can", "k": "高壓情境處置"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度 EPA自評-對於休克處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次課程對提升我的休克處置技能非常有幫助", "scale": "agree", "k": "課程有幫助"}, {"type": "likert", "h": "會想參加下一次類似的課程", "scale": "agree", "k": "想再參加"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "請描述課程中您覺得最有幫助的內容或活動，為什麼？", "optional": false}, {"type": "text", "h": "經過這堂課後，請列出三個(或更多)「最想記得」或「最想加強」的知識點。", "optional": false}, {"type": "text", "h": "本次課程有什麼地方可以改進，能更好幫助您學習？", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？", "optional": false}]}]}, {"key": "cvc", "sheet": "中央靜脈導管", "title": "中央靜脈導管置入技能自我評估問卷", "short": "中央靜脈導管置入", "tag": "課程問卷", "desc": "中央靜脈導管（CVC）模具與超音波操作課程結束後填寫。", "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解中央靜脈導管置入所需的解剖結構和生理知識", "scale": "know", "k": "解剖與生理知識"}, {"type": "likert", "h": "我能夠準確進行無菌操作並插入中央靜脈導管", "scale": "able", "k": "無菌操作與置入"}, {"type": "likert", "h": "我能夠使用超音波輔助來確認導管位置", "scale": "able", "k": "超音波確認位置"}, {"type": "likert", "h": "在實際臨床環境（例如值班）中，我對於成功進行中央 靜脈導管置入感到自信。", "scale": "conf", "k": "臨床執行自信"}, {"type": "likert", "h": "我有動力進一步提升和精進我的中央靜脈導管置入技能", "scale": "motiv", "k": "精進動力"}, {"type": "likert", "h": "我認為自己能夠在高壓情境下（如值班急救場景）進行 中央靜脈導管置入操作。", "scale": "can", "k": "高壓情境操作"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度EPA-自評-對於中央靜脈導管置入處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次課程對提升我的中央靜脈導管置入技能非常有幫助", "scale": "agree", "k": "課程有幫助"}, {"type": "likert", "h": "會想參加下一次類似的課程", "scale": "agree", "k": "想再參加"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "請描述課程中您覺得最有幫助的內容或活動，為什麼?", "optional": false}, {"type": "text", "h": "本次模具操作與超音波教學有什麼地方可以改進，能更好幫助您學習?", "optional": false}, {"type": "text", "h": "經過這堂課後，請列出三個(或更多) [最想記得]或[最想加強]的知識點。", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？", "optional": false}]}]}];
+const F = Object.fromEntries(FORMS.map(f=>[f.key,f]));
+
+const MODULES = [
+  {key:'airway',     title:'急性呼吸道處置', sub:'自我評估前後測', forms:['airway_pre','airway_post'], paired:true},
+  {key:'sim_airway', title:'擬真 1.0 急性呼吸道', sub:'課程回饋表（學員）', forms:['sim_airway']},
+  {key:'trm',        title:'TRM 急救高效團隊', sub:'自我評估問卷', forms:['trm']},
+  {key:'shock',      title:'休克處置', sub:'課後評估問卷', forms:['shock']},
+  {key:'cvc',        title:'中央靜脈導管置入', sub:'技能自我評估問卷', forms:['cvc']}
+];
+const EPA_COLORS = ['#E3E8F2','#B4C1DA','#7F93BD','#4A6496','#1E3A6E'];
+const EPA_INK    = ['#1A2233','#1A2233','#fff','#fff','#fff'];
+const EPA_DESC = ['還不能自己處理，僅可在旁觀看','可處理，但需要VS在旁監督','可處理，但VS需「立即」出現','可處理，處理完再跟VS報備','可處理，且能教導他人'];
+const LABEL_SCORE = {'非常不同意':1,'不同意':2,'一般':3,'普通':3,'同意':4,'非常同意':5,'非常不滿意':1,'不滿意':2,'滿意':4,'非常滿意':5};
+
+/* ---------- utils ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s??'').replace(/[\s 　]/g,'');
+const clean=s=>String(s??'').replace(/ /g,' ').trim();
+const disp=h=>clean(h).replace(/([一-鿿，、。）])\s+(?=[一-鿿（])/g,'$1').replace(/\s{2,}/g,' ');
+const fmt=(x,d=2)=>x==null||isNaN(x)?'–':x.toFixed(d);
+const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
+const sd=a=>{if(a.length<2)return null;const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));};
+const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+function score(v){const s=clean(v);if(!s)return null;const m=s.match(/^(\d)/);if(m)return +m[1];return LABEL_SCORE[s]??null;}
+function epa(v){const m=clean(v).match(/Level\s*(\d)/i);return m?+m[1]:null;}
+const dateOf=t=>String(t||'').slice(0,10);
+
+/* paired t-test (two-sided) */
+function betacf(a,b,x){let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<1e-30)d=1e-30;d=1/d;let h=d;
+  for(let m=1;m<=200;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<1e-30)d=1e-30;c=1+aa/c;if(Math.abs(c)<1e-30)c=1e-30;d=1/d;h*=d*c;
+  aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<1e-30)d=1e-30;c=1+aa/c;if(Math.abs(c)<1e-30)c=1e-30;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<3e-7)break;}return h;}
+function lgamma(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=x,t=x+5.5;t-=(x+.5)*Math.log(t);let s=1.000000000190015;for(const k of c)s+=k/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function betai(a,b,x){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(lgamma(a+b)-lgamma(a)-lgamma(b)+a*Math.log(x)+b*Math.log(1-x));return x<(a+1)/(a+b+2)?bt*betacf(a,b,x)/a:1-bt*betacf(b,a,1-x)/b;}
+function pairedT(diffs){const n=diffs.length;if(n<2)return {n,p:null};const m=mean(diffs),s=sd(diffs);if(!s)return {n,m,p:m===0?1:0};const t=m/(s/Math.sqrt(n)),df=n-1;return {n,m,t,df,p:betai(df/2,.5,df/(df+t*t))};}
+const pTxt=p=>p==null?'':p<.001?'p < .001':'p = '+p.toFixed(3).replace(/^0/,'');
+
+/* ---------- header art: navy ribbons sweeping across the red tile ---------- */
+(function art(){
+  const svg=$('#art'),ns='http://www.w3.org/2000/svg';
+  const add=(d,f)=>{const p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill',f);svg.appendChild(p);};
+  for(let i=0;i<6;i++){const a=i/5,y0=-6+a*34,w0=4,x1=810,y1=120+a*44,w1=1.4,c1y=y0+30,c2y=40+a*40,wc=2.6;
+    add(`M300 ${y0-w0} C460 ${c1y-w0} 600 ${c2y-wc} ${x1} ${y1-w1} L${x1} ${y1+w1} C600 ${c2y+wc} 460 ${c1y+w0} 300 ${y0+w0} Z`,'#1E3A6E');}
+})();
+
+/* ---------- tooltip ---------- */
+const tip=$('#tip');
+document.addEventListener('mouseover',e=>{const t=e.target.closest('[data-tip]');if(!t){tip.classList.remove('on');return;}tip.textContent=t.dataset.tip;tip.classList.add('on');});
+document.addEventListener('mousemove',e=>{if(!tip.classList.contains('on'))return;const w=tip.offsetWidth,h=tip.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tip.style.left=x+'px';tip.style.top=y+'px';});
+
+/* ---------- state & data ---------- */
+let RAW=null, DATA={}, TAB=ls.get('ems_dash_tab')||'overview';
+const UI={recForm:{}, recSearch:{}, qSel:{}, pairOnly:true};
+
+async function load(){
+  if(!/^https:\/\/script\.google\.com\//.test(GAS_URL)){$('#app').innerHTML='<div class="empty">尚未設定 GAS 網址</div>';return;}
+  $('#upd').textContent='讀取中…';
+  if(!RAW) $('#app').innerHTML='<div class="loading">讀取資料中…</div>';
+  try{
+    const r=await fetch(GAS_URL+'?action=data&t='+Date.now());
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'讀取失敗');
+    RAW=j; prepare(); $('#upd').textContent=j.updated; render();
+  }catch(e){
+    $('#upd').textContent='讀取失敗';
+    $('#app').innerHTML=`<div class="bento"><div class="tile t-12" style="text-align:center;padding:40px"><h3 style="color:var(--red);margin-bottom:6px">資料讀取失敗</h3><p class="muted" style="margin-bottom:14px">${esc(e.message)}<br>請確認 GAS 已用「新版本」重新部署，且存取權為「所有人」。</p><button class="btn" style="color:var(--navy)" onclick="load()">再試一次</button></div></div>`;
+  }
+}
+function prepare(){
+  DATA={}; const ranks=new Set();
+  FORMS.forEach(f=>{
+    const src=(RAW.forms||{})[f.key]||{headers:[],rows:[]};
+    const idx={}; (src.headers||[]).forEach((h,i)=>{const k=norm(h);if(!(k in idx))idx[k]=i;});
+    const get=(row,h)=>{const i=idx[norm(h)];return i==null?'':row[i];};
+    DATA[f.key]=(src.rows||[]).map(row=>{
+      const r={get:h=>get(row,h),time:String(get(row,'完成時間')||get(row,'開始時間')||''),name:clean(get(row,'姓名')),id:clean(get(row,'人事號')).toUpperCase(),rank:clean(get(row,'職級'))};
+      r.date=dateOf(r.time); if(r.rank) ranks.add(r.rank); return r;
+    }).filter(r=>r.name||r.id);
+  });
+  const sel=$('#fRank'),cur=sel.value;
+  sel.innerHTML='<option value="">全部</option>'+[...ranks].sort().map(r=>`<option>${esc(r)}</option>`).join('');
+  sel.value=cur;
+}
+function recs(fk){const from=$('#fFrom').value,to=$('#fTo').value,rank=$('#fRank').value;return (DATA[fk]||[]).filter(r=>(!from||r.date>=from)&&(!to||r.date<=to)&&(!rank||r.rank===rank));}
+const items=(f,type)=>f.sections.flatMap(s=>s.items.map(it=>({...it,sec:s.title}))).filter(it=>!type||it.type===type);
+const selfItems=f=>items(f,'likert').filter(it=>it.sec!=='課程回饋');
+const fbItems=f=>items(f,'likert').filter(it=>it.sec==='課程回饋');
+const epaItem=f=>items(f,'epa')[0];
+function itemStat(rs,it){const v=rs.map(r=>score(r.get(it.h))).filter(x=>x!=null);const dist=[0,0,0,0,0];v.forEach(x=>dist[x-1]++);return {n:v.length,mean:mean(v),sd:sd(v),dist,top2:v.length?(dist[3]+dist[4])/v.length:null};}
+function recMean(r,its){const v=its.map(it=>score(r.get(it.h))).filter(x=>x!=null);return v.length?mean(v):null;}
+function epaStat(rs,f){const it=epaItem(f);const v=rs.map(r=>epa(r.get(it.h))).filter(x=>x!=null);const dist=[0,0,0,0,0];v.forEach(x=>dist[x-1]++);return {n:v.length,mean:mean(v),dist};}
+function latestBy(rs){const m=new Map();rs.slice().sort((a,b)=>a.time<b.time?-1:1).forEach(r=>m.set(r.id||r.name,r));return m;}
+function pairs(){const pre=latestBy(recs('airway_pre')),post=latestBy(recs('airway_post')),out=[];post.forEach((po,k)=>{const pr=pre.get(k);if(pr)out.push({id:k,pre:pr,post:po});});return out.sort((a,b)=>a.post.time<b.post.time?1:-1);}
+function pairedItemStats(){
+  const P=pairs(),a=selfItems(F.airway_pre),b=selfItems(F.airway_post);
+  return a.map((it,i)=>{const d=[],x=[],y=[];P.forEach(p=>{const s1=score(p.pre.get(it.h)),s2=score(p.post.get(b[i].h));if(s1!=null&&s2!=null){x.push(s1);y.push(s2);d.push(s2-s1);}});return {k:it.k,pre:mean(x),post:mean(y),...pairedT(d)};});
+}
+const modName=f=>f.key.startsWith('airway')?'急性呼吸道處置':(f.short||f.title);
+
+/* ---------- chart builders ---------- */
+const axis=()=>`<div class="hb-axis"><div></div><div>${[0,1,2,3,4,5].map(v=>`<span style="left:${v*20}%">${v}</span>`).join('')}</div><div></div></div>`;
+const distTxt=d=>d.map((c,i)=>`${i+1}分：${c} 人`).join('\n');
+function barChart(rs,its,color){
+  if(!rs.length) return '<div class="empty">此期間沒有資料</div>';
+  return `<div class="hb">${its.map(it=>{const s=itemStat(rs,it);
+    return `<div class="hb-row"><div class="hb-lab" title="${esc(disp(it.h))}">${esc(it.k||disp(it.h))}</div>
+      <div class="hb-track"><div class="hb-bar" style="width:${(s.mean||0)*20}%${color?';background:'+color:''}" data-tip="${esc(`${it.k}\n平均 ${fmt(s.mean)}（SD ${fmt(s.sd)}），n = ${s.n}\n4–5 分比例 ${s.top2==null?'–':Math.round(s.top2*100)+'%'}\n${distTxt(s.dist)}`)}"></div></div>
+      <div class="hb-val"><span class="num">${fmt(s.mean)}</span><span class="p">4–5分 ${s.top2==null?'–':Math.round(s.top2*100)+'%'}</span></div></div>`;}).join('')}</div>${axis()}`;
+}
+function pairChart(stats){
+  if(!stats.length||stats.every(s=>s.pre==null&&s.post==null)) return '<div class="empty">此期間沒有可比較的資料</div>';
+  return `<div class="hb">${stats.map(s=>{const d=s.post!=null&&s.pre!=null?s.post-s.pre:null,cls=d==null?'flat':d>0.005?'up':d<-0.005?'down':'flat';
+    return `<div class="hb-row"><div class="hb-lab">${esc(s.k)}</div><div class="hb-track">
+      <div class="hb-bar pre" style="width:${(s.pre||0)*20}%" data-tip="${esc(`${s.k}｜課前\n平均 ${fmt(s.pre)}${s.n!=null?'，n = '+s.n:''}`)}"></div>
+      <div class="hb-bar post" style="width:${(s.post||0)*20}%" data-tip="${esc(`${s.k}｜課後\n平均 ${fmt(s.post)}${s.n!=null?'，n = '+s.n:''}\n${d==null?'':'差異 '+(d>0?'+':'')+fmt(d)} ${pTxt(s.p)}`)}"></div></div>
+      <div class="hb-val"><span class="delta ${cls}">${d==null?'–':(d>0?'▲ +':d<0?'▼ ':'')+fmt(d)}</span><span class="p">${pTxt(s.p)}</span></div></div>`;}).join('')}</div>${axis()}`;
+}
+function stacked(rows){
+  if(!rows.some(r=>r.dist.some(x=>x))) return '<div class="empty">此期間沒有資料</div>';
+  return `<div class="stk">${rows.map(r=>{const n=r.dist.reduce((a,b)=>a+b,0);
+    return `<div class="stk-row"><div class="stk-lab">${esc(r.label)}</div><div class="stk-bar">${r.dist.map((c,i)=>c?`<div style="flex:${c};background:${EPA_COLORS[i]};color:${EPA_INK[i]}" data-tip="${esc(`${r.label}｜Level ${i+1}\n${EPA_DESC[i]}\n${c} 人（${Math.round(c/n*100)}%）`)}">${c/n>=.1?Math.round(c/n*100)+'%':''}</div>`:'').join('')}</div><div class="stk-n">n = ${n}</div></div>`;}).join('')}</div>
+    <div class="epa-leg">${EPA_COLORS.map((c,i)=>`<span><i style="background:${c}"></i>L${i+1}　${EPA_DESC[i]}</span>`).join('')}</div>`;
+}
+function choiceChart(rs,it,color){
+  const cnt={};it.opts.forEach(o=>cnt[o]=0);
+  rs.forEach(r=>{const v=clean(r.get(it.h)).replace(/\s+/g,' ');const k=it.opts.find(o=>norm(o)===norm(v))||v;if(k)cnt[k]=(cnt[k]||0)+1;});
+  const n=Object.values(cnt).reduce((a,b)=>a+b,0),max=Math.max(1,...Object.values(cnt));
+  return `<div class="hb">${Object.entries(cnt).map(([k,c])=>`<div class="hb-row" style="grid-template-columns:80px 1fr 48px"><div class="hb-lab">${esc(k)}</div><div class="hb-track" style="background:none"><div class="hb-bar" style="width:${c/max*100}%;background:${color}" data-tip="${esc(`${k}：${c} 人${n?'（'+Math.round(c/n*100)+'%）':''}`)}"></div></div><div class="hb-val"><span class="num">${c}</span> 人</div></div>`).join('')}</div>`;
+}
+
+/* ---------- tiles ---------- */
+function kpi(span,color,l,v,s,unit){return `<div class="tile kpi ${span} ${color||''}"><div class="l">${l}</div><div class="v">${v}${unit?`<small>${unit}</small>`:''}</div>${s?`<div class="s">${s}</div>`:''}</div>`;}
+function tileH(no,title,d,extra){return `<div class="tile-h"><div>${no?`<span class="tag-no">${no}</span>`:''}<h3>${title}</h3>${d?`<div class="d">${d}</div>`:''}</div>${extra||''}</div>`;}
+function deltaHtml(a,b,p){if(a==null||b==null)return '';const d=b-a,c=d>0.005?'up':d<-0.005?'down':'flat';return `<span class="delta ${c}">${d>0?'▲ +':d<0?'▼ ':''}${fmt(d)}</span>${p!=null?` · ${pTxt(p)}`:''}`;}
+
+/* ---------- pages ---------- */
+function render(){
+  const tabs=[['overview','總覽'],...MODULES.map(m=>[m.key,m.title])];
+  if(!tabs.some(t=>t[0]===TAB)) TAB='overview';
+  $('#tabs').innerHTML=tabs.map(([k,t],i)=>`<button data-k="${k}" class="${k===TAB?'on':''} ${i%2?'alt':''}">${t}</button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{TAB=b.dataset.k;ls.set('ems_dash_tab',TAB);render();window.scrollTo({top:0});});
+  $('#bExport').textContent = TAB==='overview'?'匯出全部 Excel':'匯出本課程 Excel';
+  $('#app').innerHTML = `<div class="bento">${TAB==='overview'?pageOverview():TAB==='airway'?pageAirway():pageSingle(MODULES.find(m=>m.key===TAB))}</div>`;
+  bindPage();
+}
+
+function pageOverview(){
+  const all=FORMS.flatMap(f=>recs(f.key)),people=new Set(all.map(r=>r.id||r.name)),last=all.map(r=>r.time).sort().pop(),P=pairs();
+  let h=kpi('t-3','navy','總填答份數',all.length,'五門課程合計','份')
+       +kpi('t-3','red','參與學員',people.size,'依人事號計算','人')
+       +kpi('t-3','cream','前後測配對',P.length,'急性呼吸道 課前＋課後','人')
+       +kpi('t-3','','最近填答',last?last.slice(5,10).replace('-','/'):'–',last?last.slice(0,4)+' 年 · '+last.slice(11,16):'');
+  const pre=recs('airway_pre'),post=recs('airway_post');
+  const a=mean(P.map(p=>recMean(p.pre,selfItems(F.airway_pre))).filter(x=>x!=null)),b=mean(P.map(p=>recMean(p.post,selfItems(F.airway_post))).filter(x=>x!=null));
+  const ea=mean(P.map(p=>epa(p.pre.get(epaItem(F.airway_pre).h))).filter(x=>x!=null)),eb=mean(P.map(p=>epa(p.post.get(epaItem(F.airway_post).h))).filter(x=>x!=null));
+  h+=`<button class="tile mod big navy t-6 r-2" data-go="airway">
+      <div><span class="tag-no">01 · PRE / POST</span><div class="nm">急性呼吸道處置</div><div class="sb">自我評估前後測</div></div>
+      <div class="hero"><div>配對自評平均<span class="num">${fmt(a)} → ${fmt(b)}</span></div><div>配對 EPA 平均<span class="num">L${fmt(ea,1)} → L${fmt(eb,1)}</span></div></div>
+      <div class="stats"><div>課前<span class="num">${pre.length}</span></div><div>課後<span class="num">${post.length}</span></div><div>配對<span class="num">${P.length}</span></div></div>
+      <div class="go">查看分析 →</div></button>`;
+  const colors={sim_airway:'',trm:'red',shock:'cream',cvc:''};
+  MODULES.filter(m=>!m.paired).forEach((m,i)=>{
+    const f=F[m.forms[0]],rs=recs(f.key),se=mean(rs.map(r=>recMean(r,selfItems(f))).filter(x=>x!=null)),e=epaStat(rs,f);
+    h+=`<button class="tile mod t-3 ${colors[m.key]}" data-go="${m.key}">
+      <div><span class="tag-no">${String(i+2).padStart(2,'0')}</span><div class="nm">${m.title}</div><div class="sb">${m.sub}</div></div>
+      <div class="stats"><div>填答<span class="num">${rs.length}</span></div><div>${f.key==='sim_airway'?'滿意度':'自評'}<span class="num">${fmt(se)}</span></div><div>EPA<span class="num">${fmt(e.mean,1)}</span></div></div></button>`;
+  });
+  const ses={};
+  FORMS.forEach(f=>recs(f.key).forEach(r=>{const k=r.date+'|'+f.key;(ses[k]=ses[k]||{date:r.date,f,rs:[]}).rs.push(r);}));
+  const list=Object.values(ses).sort((a,b)=>a.date<b.date?1:-1);
+  h+=`<div class="tile t-12">${tileH('06','課程梯次','依填答日期彙整，依上方期間與職級篩選')}
+    ${list.length?`<div class="tbl-scroll"><table><thead><tr><th>日期</th><th>課程</th><th class="r">人數</th><th class="r">自評／滿意度平均</th><th class="r">EPA 平均</th></tr></thead><tbody>${list.map(s=>`<tr><td class="num">${s.date}</td><td>${esc(modName(s.f))}${s.f.key.startsWith('airway')?` <span class="pill ${s.f.key==='airway_pre'?'pre':'post'}">${s.f.key==='airway_pre'?'課前':'課後'}</span>`:''}</td><td class="r num">${s.rs.length}</td><td class="r num">${fmt(mean(s.rs.map(r=>recMean(r,selfItems(s.f))).filter(x=>x!=null)))}</td><td class="r num">${fmt(epaStat(s.rs,s.f).mean,1)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">此期間沒有資料</div>'}</div>`;
+  return h;
+}
+
+function pageAirway(){
+  const fp=F.airway_pre,fq=F.airway_post,pre=recs('airway_pre'),post=recs('airway_post'),P=pairs();
+  const pm=P.map(p=>({a:recMean(p.pre,selfItems(fp)),b:recMean(p.post,selfItems(fq)),ea:epa(p.pre.get(epaItem(fp).h)),eb:epa(p.post.get(epaItem(fq).h))}));
+  const sv=pm.filter(x=>x.a!=null&&x.b!=null),ev=pm.filter(x=>x.ea!=null&&x.eb!=null);
+  const tS=pairedT(sv.map(x=>x.b-x.a)),tE=pairedT(ev.map(x=>x.eb-x.ea));
+  const aS=mean(sv.map(x=>x.a)),bS=mean(sv.map(x=>x.b)),aE=mean(ev.map(x=>x.ea)),bE=mean(ev.map(x=>x.eb));
+  const stats=UI.pairOnly?pairedItemStats():selfItems(fp).map((it,i)=>({k:it.k,pre:itemStat(pre,it).mean,post:itemStat(post,selfItems(fq)[i]).mean,p:null,n:null}));
+  const num=items(fp,'number')[0],nv=pre.map(r=>parseFloat(String(r.get(num.h)).replace(/[^\d.]/g,''))).filter(x=>!isNaN(x));
+  return kpi('t-2','','課前填答',pre.length,'','份')+kpi('t-2','','課後填答',post.length,'','份')+kpi('t-2','cream','前後測配對',P.length,'兩次都有填','人')
+   +kpi('t-3','navy','自評平均（配對）',`${fmt(aS)}<small>→</small>${fmt(bS)}`,deltaHtml(aS,bS,tS.p))
+   +kpi('t-3','red','EPA 平均（配對）',`L${fmt(aE,1)}<small>→</small>L${fmt(bE,1)}`,deltaHtml(aE,bE,tE.p))
+   +`<div class="tile t-8 r-2">${tileH('01','自我評估 9 題前後比較',UI.pairOnly?'僅計入配對成功的學員（依人事號，同一人取最近一次），成對 t 檢定':'全部填答者（未配對，不做檢定）',
+      `<div class="seg no-print" id="pairSeg"><button data-v="1" class="${UI.pairOnly?'on':''}">僅配對</button><button data-v="0" class="${UI.pairOnly?'':'on'}">全部填答</button></div>`)}
+      <div class="legend" style="margin-bottom:12px"><span><i style="background:var(--pre)"></i>課前</span><span><i style="background:var(--post)"></i>課後</span><span>右欄：課後 − 課前</span></div>${pairChart(stats)}</div>
+    <div class="tile t-4">${tileH('02','EPA 信任程度','課前 vs 課後（全部填答）')}${stacked([{label:'課前',dist:epaStat(pre,fp).dist},{label:'課後',dist:epaStat(post,fq).dist}])}</div>
+    <div class="tile t-4 cream">${tileH('03','課程回饋','課後問卷，1–5 分')}${barChart(post,fbItems(fq),'var(--red)')}</div>
+    ${items(fp,'choice').map((it,i)=>`<div class="tile t-4">${tileH('0'+(4+i),esc(disp(it.h).replace(/：$/,'')),'課前問卷')}${choiceChart(pre,it,i?'var(--red)':'var(--navy)')}</div>`).join('')}
+    <div class="tile t-4 navy">${tileH('06',esc(disp(num.h)),'課前問卷')}<div class="mini"><div>平均<span class="num">${fmt(mean(nv),1)}<small>次</small></span></div><div>最多<span class="num">${nv.length?Math.max(...nv):'–'}<small>次</small></span></div><div>從未參與<span class="num">${nv.filter(x=>x===0).length}<small>人</small></span></div></div></div>
+    <div class="tile t-12">${tileH('07','個人前後測對照','')}
+    ${P.length?`<div class="tbl-scroll"><table><thead><tr><th>姓名</th><th>人事號</th><th>職級</th><th>課前日期</th><th>課後日期</th><th class="r">自評 課前</th><th class="r">自評 課後</th><th class="r">差異</th><th class="c">EPA 課前</th><th class="c">EPA 課後</th></tr></thead><tbody>
+    ${P.map((p,i)=>{const x=pm[i],d=x.a!=null&&x.b!=null?x.b-x.a:null;return `<tr><td>${esc(p.post.name)}</td><td class="num">${esc(p.id)}</td><td>${esc(p.post.rank)}</td><td class="num">${p.pre.date}</td><td class="num">${p.post.date}</td><td class="r num">${fmt(x.a)}</td><td class="r num">${fmt(x.b)}</td><td class="r">${d==null?'–':`<span class="delta ${d>0.005?'up':d<-0.005?'down':'flat'}">${d>0?'+':''}${fmt(d)}</span>`}</td><td class="c num">${x.ea?'L'+x.ea:'–'}</td><td class="c num">${x.eb?'L'+x.eb:'–'}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty">尚無配對資料</div>'}</div>
+    ${qualTile('airway_post','08','質性回饋（課後）')}
+    ${recordsTile(['airway_pre','airway_post'],'09')}`;
+}
+
+function pageSingle(m){
+  const f=F[m.forms[0]],rs=recs(f.key),se=selfItems(f),fb=fbItems(f),e=epaStat(rs,f);
+  const sv=rs.map(r=>recMean(r,se)).filter(x=>x!=null),fv=rs.map(r=>recMean(r,fb)).filter(x=>x!=null);
+  const isSat=f.key==='sim_airway',selfTitle=isSat?'課程滿意度':'自我評估';
+  const sp=fb.length?['t-2','t-2','t-3','t-3','t-2']:['t-3','t-3','t-3','t-3'];
+  let h=kpi(sp[0],'navy','填答份數',rs.length,'','份')+kpi(sp[1],'','參與學員',new Set(rs.map(r=>r.id||r.name)).size,'','人')
+    +kpi(sp[2],'red',selfTitle+'平均',fmt(mean(sv)),`${se.length} 題，1–5 分`)+kpi(sp[3],'cream','EPA 平均','L'+fmt(e.mean,1),`n = ${e.n}`)
+    +(fb.length?kpi(sp[4],'','課程回饋平均',fmt(mean(fv)),`${fb.length} 題`):'');
+  h+=`<div class="tile t-8 r-2">${tileH('01',selfTitle+'各題平均（1–5 分）',esc(f.title)+'｜游標移到長條上可看人數分布')}${barChart(rs,se)}</div>
+      <div class="tile t-4 ${fb.length?'':'r-2'}">${tileH('02','EPA 信任程度分布','')}${stacked([{label:'全部',dist:e.dist}])}</div>
+      ${fb.length?`<div class="tile t-4 cream">${tileH('03','課程回饋','1–5 分')}${barChart(rs,fb,'var(--red)')}</div>`:''}
+      ${qualTile(f.key,'04','質性回饋')}${recordsTile([f.key],'05')}`;
+  return h;
+}
+
+function qualTile(fk,no,title){
+  const f=F[fk],ts=items(f,'text'),rs=recs(fk); if(!ts.length) return '';
+  const sel=UI.qSel[fk]??0,it=ts[sel];
+  const ans=rs.map(r=>({r,v:clean(r.get(it.h))})).filter(x=>x.v&&!/^(無|沒有|nil|none|na|n\/a|-|～|~)$/i.test(x.v)).sort((a,b)=>a.r.time<b.r.time?1:-1);
+  return `<div class="tile t-12">${tileH(no,title,`${ans.length} 則回覆（已略過「無」等空白回覆）`)}
+    <select class="qsel" data-q="${fk}">${ts.map((t,i)=>`<option value="${i}" ${i===sel?'selected':''}>Q${i+1}．${esc(disp(t.h).replace(/^\((有關反思|有關課程|反思與回饋)\)\s*/,''))}</option>`).join('')}</select>
+    <div class="quotes">${ans.length?ans.map(x=>`<div class="quote"><div class="txt">${esc(x.v)}</div><div class="who">${esc(x.r.name)}<span>${x.r.date}</span></div></div>`).join(''):'<div class="empty">此期間沒有回覆</div>'}</div></div>`;
+}
+function recordsTile(fks,no){
+  const key=fks.join(','),cur=UI.recForm[key]&&fks.includes(UI.recForm[key])?UI.recForm[key]:fks[0],f=F[cur];
+  const q=(UI.recSearch[key]||'').toLowerCase();
+  const rs=recs(cur).filter(r=>!q||(r.name+r.id).toLowerCase().includes(q)).sort((a,b)=>a.time<b.time?1:-1);
+  const se=selfItems(f),fb=fbItems(f),ei=epaItem(f);
+  return `<div class="tile t-12">${tileH(no,'填答紀錄','點選任一列可查看完整作答')}<div class="tbl-tools">
+    ${fks.length>1?`<div class="seg" data-recseg="${key}">${fks.map((k,i)=>`<button data-v="${k}" class="${k===cur?'on':''} ${i?'alt':''}">${k==='airway_pre'?'課前':'課後'}</button>`).join('')}</div>`:''}
+    <input type="search" placeholder="搜尋姓名或人事號" data-recq="${key}" value="${esc(UI.recSearch[key]||'')}"><span class="upd">${rs.length} 筆</span></div>
+    ${rs.length?`<div class="tbl-scroll"><table><thead><tr><th>填答時間</th><th>姓名</th><th>人事號</th><th>職級</th><th class="r">${f.key==='sim_airway'?'滿意度':'自評'}平均</th>${fb.length?'<th class="r">回饋平均</th>':''}<th class="c">EPA</th></tr></thead><tbody>
+    ${rs.map(r=>`<tr class="click" data-rec="${cur}|${DATA[cur].indexOf(r)}"><td class="num">${esc(r.time.slice(0,16))}</td><td>${esc(r.name)}</td><td class="num">${esc(r.id)}</td><td>${esc(r.rank)}</td><td class="r num">${fmt(recMean(r,se))}</td>${fb.length?`<td class="r num">${fmt(recMean(r,fb))}</td>`:''}<td class="c num">${epa(r.get(ei.h))?'L'+epa(r.get(ei.h)):'–'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">此期間沒有資料</div>'}</div>`;
+}
+function showRecord(fk,i){
+  const f=F[fk],r=DATA[fk][i];let n=0;const rows=[];
+  if(f.month) rows.push(['',disp(f.month),r.get(f.month)]);
+  f.sections.forEach(s=>s.items.forEach(it=>{n++;rows.push([String(n).padStart(2,'0'),disp(it.h),r.get(it.h)]);}));
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="modal-box"><div class="modal-h"><div><b>${esc(r.name)}（${esc(r.id)}）</b><span>${esc(modName(f))}${fk.startsWith('airway')?'｜'+(fk==='airway_pre'?'課前':'課後'):''} · ${esc(r.rank)} · ${esc(r.time)}</span></div><button aria-label="關閉">×</button></div>
+    <div class="modal-b">${rows.map(([no,q,a])=>`<div class="qa"><span class="n">${no}</span><span class="q">${esc(q)}</span><span class="a">${esc(clean(a))||'<span style="color:var(--muted)">（未填）</span>'}</span></div>`).join('')}</div></div>`;
+  m.onclick=e=>{if(e.target===m||e.target.closest('.modal-h button'))m.remove();};
+  document.body.appendChild(m);
+}
+function bindPage(){
+  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{TAB=b.dataset.go;ls.set('ems_dash_tab',TAB);render();window.scrollTo({top:0});});
+  const ps=$('#pairSeg');if(ps)ps.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.pairOnly=b.dataset.v==='1';const y=scrollY;render();scrollTo(0,y);});
+  document.querySelectorAll('.qsel').forEach(s=>s.onchange=()=>{UI.qSel[s.dataset.q]=+s.value;const y=scrollY;render();scrollTo(0,y);});
+  document.querySelectorAll('[data-recseg]').forEach(seg=>seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.recForm[seg.dataset.recseg]=b.dataset.v;const y=scrollY;render();scrollTo(0,y);}));
+  document.querySelectorAll('[data-recq]').forEach(inp=>inp.oninput=()=>{UI.recSearch[inp.dataset.recq]=inp.value;const y=scrollY,pos=inp.selectionStart;render();scrollTo(0,y);const n=document.querySelector(`[data-recq="${inp.dataset.recq}"]`);n.focus();n.setSelectionRange(pos,pos);});
+  document.querySelectorAll('[data-rec]').forEach(tr=>tr.onclick=()=>{const [fk,i]=tr.dataset.rec.split('|');showRecord(fk,+i);});
+}
+
+/* ---------- Excel export ---------- */
+function rawSheet(fk){const f=F[fk],hs=['ID','開始時間','完成時間','姓名','人事號','職級',...(f.month?[f.month]:[]),...items(f).map(it=>it.h)];const aoa=[hs.map(disp)];recs(fk).forEach(r=>aoa.push(hs.map(h=>{const v=r.get(h);return typeof v==='string'?clean(v):v;})));return XLSX.utils.aoa_to_sheet(aoa);}
+function statSheet(fk){
+  const f=F[fk],rs=recs(fk),aoa=[['向度','題目','簡稱','n','平均','標準差','4–5分比例','1分','2分','3分','4分','5分']];
+  items(f,'likert').forEach(it=>{const s=itemStat(rs,it);aoa.push([it.sec,disp(it.h),it.k,s.n,s.mean==null?'':+s.mean.toFixed(2),s.sd==null?'':+s.sd.toFixed(2),s.top2==null?'':+(s.top2*100).toFixed(1)+'%',...s.dist]);});
+  const e=epaStat(rs,f);aoa.push([]);aoa.push(['EPA 信任程度','','','n','平均','','','Level 1','Level 2','Level 3','Level 4','Level 5']);
+  aoa.push(['EPA',disp(epaItem(f).h),'',e.n,e.mean==null?'':+e.mean.toFixed(2),'','',...e.dist]);
+  return XLSX.utils.aoa_to_sheet(aoa);
+}
+function qualSheet(fk){const f=F[fk],aoa=[['填答時間','姓名','人事號','題目','回覆']];recs(fk).forEach(r=>items(f,'text').forEach(it=>{const v=clean(r.get(it.h));if(v)aoa.push([r.time,r.name,r.id,disp(it.h),v]);}));return XLSX.utils.aoa_to_sheet(aoa);}
+function pairSheets(){
+  const P=pairs(),fp=F.airway_pre,fq=F.airway_post,a=selfItems(fp),b=selfItems(fq);
+  const aoa=[['姓名','人事號','職級','課前日期','課後日期',...a.flatMap(it=>[it.k+'_前',it.k+'_後']),'自評平均_前','自評平均_後','差異','EPA_前','EPA_後']];
+  P.forEach(p=>{const x=recMean(p.pre,a),y=recMean(p.post,b);aoa.push([p.post.name,p.id,p.post.rank,p.pre.date,p.post.date,...a.flatMap((it,i)=>[score(p.pre.get(it.h)),score(p.post.get(b[i].h))]),x==null?'':+x.toFixed(2),y==null?'':+y.toFixed(2),x!=null&&y!=null?+(y-x).toFixed(2):'',epa(p.pre.get(epaItem(fp).h)),epa(p.post.get(epaItem(fq).h))]);});
+  const st=[['題目','配對 n','課前平均','課後平均','差異','t','p']];
+  pairedItemStats().forEach(s=>st.push([s.k,s.n,s.pre==null?'':+s.pre.toFixed(2),s.post==null?'':+s.post.toFixed(2),s.pre!=null&&s.post!=null?+(s.post-s.pre).toFixed(2):'',s.t==null?'':+s.t.toFixed(3),s.p==null?'':s.p<0.0001?'<0.0001':+s.p.toFixed(4)]));
+  return [XLSX.utils.aoa_to_sheet(aoa),XLSX.utils.aoa_to_sheet(st)];
+}
+function filterNote(){const a=$('#fFrom').value,b=$('#fTo').value,r=$('#fRank').value;return (a||b?`_${a||'起'}至${b||'今'}`:'')+(r?`_${r}`:'');}
+function exportExcel(){
+  if(!RAW) return;
+  if(typeof XLSX==='undefined'){alert('Excel 元件尚未載入，請確認網路後重新整理');return;}
+  const wb=XLSX.utils.book_new(),add=(ws,n)=>XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31));
+  const today=new Date().toISOString().slice(0,10).replace(/-/g,'');let name;
+  if(TAB==='overview'){
+    const ov=[['課程','問卷','填答份數','自評／滿意度平均','EPA 平均']];
+    FORMS.forEach(f=>{const rs=recs(f.key);ov.push([modName(f),f.title+(f.key.startsWith('airway')?'（'+f.tag+'）':''),rs.length,+(mean(rs.map(r=>recMean(r,selfItems(f))).filter(x=>x!=null))||0).toFixed(2),+(epaStat(rs,f).mean||0).toFixed(2)]);});
+    add(XLSX.utils.aoa_to_sheet(ov),'總覽');
+    const [ps,pst]=pairSheets();add(pst,'呼吸道_前後測統計');add(ps,'呼吸道_個人配對');
+    FORMS.forEach(f=>{add(rawSheet(f.key),f.sheet+'_紀錄');add(statSheet(f.key),f.sheet+'_統計');});
+    name=`急救模組問卷_全部${filterNote()}_${today}.xlsx`;
+  }else if(TAB==='airway'){
+    const [ps,pst]=pairSheets();add(pst,'前後測統計');add(ps,'個人配對');
+    add(statSheet('airway_pre'),'課前_題目統計');add(statSheet('airway_post'),'課後_題目統計');
+    add(rawSheet('airway_pre'),'課前_填答紀錄');add(rawSheet('airway_post'),'課後_填答紀錄');add(qualSheet('airway_post'),'課後_質性回饋');
+    name=`急性呼吸道處置_前後測${filterNote()}_${today}.xlsx`;
+  }else{
+    const fk=MODULES.find(m=>m.key===TAB).forms[0];
+    add(statSheet(fk),'題目統計');add(rawSheet(fk),'填答紀錄');add(qualSheet(fk),'質性回饋');
+    name=`${F[fk].sheet}${filterNote()}_${today}.xlsx`;
+  }
+  XLSX.writeFile(wb,name);
+}
+
+/* ---------- boot ---------- */
+['#fFrom','#fTo','#fRank'].forEach(s=>$(s).addEventListener('change',()=>RAW&&render()));
+$('#bReload').onclick=load;$('#bPrint').onclick=()=>window.print();$('#bExport').onclick=exportExcel;
+load();
+</script>
+</body>
+</html>
