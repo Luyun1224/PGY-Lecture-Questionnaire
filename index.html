@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>急救模組課程問卷</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#C8202F; --red-d:#A3172A; --navy:#1E3A6E; --navy-d:#14284D;
+  --paper:#F6F3EC; --card:#FFFFFF; --line:#E2DED4; --ink:#1A2233; --muted:#6A7080;
+  --ok:#1F7A4D; --warn:#C8202F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.6;font-size:15.5px}
+button{font-family:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+
+/* ===== Poster header ===== */
+.poster{max-width:760px;margin:0 auto;padding:16px 16px 0}
+.poster-art{position:relative;background:var(--red);border-radius:4px;overflow:hidden;aspect-ratio:16/6}
+.poster-art svg{position:absolute;inset:0;width:100%;height:100%}
+.poster-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0 6px;color:var(--navy)}
+.kicker{font-family:"Barlow Condensed",sans-serif;font-weight:600;letter-spacing:.22em;font-size:12.5px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.meta-tag{font-weight:700;font-size:13.5px;color:#fff;background:var(--navy);border-radius:4px;padding:2px 10px;white-space:nowrap}
+.meta-tag:empty{display:none}
+.poster-title{font-weight:900;color:var(--red);font-size:clamp(26px,7vw,42px);line-height:1.15;letter-spacing:.02em}
+.rules{height:7px;margin:8px 0 0;border-top:2px solid var(--navy);border-bottom:1px solid var(--navy)}
+.lead{color:var(--muted);font-size:14px;padding:12px 0 0}
+.lead:empty{display:none}
+
+/* ===== Progress ===== */
+.progress{position:sticky;top:0;z-index:20;background:rgba(246,243,236,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin-top:16px}
+.progress .wrap{display:flex;align-items:center;gap:12px;height:44px}
+.bar{flex:1;height:6px;background:#E4DFD3;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--navy);transition:width .25s}
+.progress span{font-size:13px;color:var(--navy);font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;text-align:right}
+.progress b{font-size:13px;color:var(--muted);font-weight:500;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== Sections & cards ===== */
+main.wrap{padding:8px 16px 40px}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin:28px 0 12px}
+.sec-h .no{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:22px;color:var(--red);line-height:1}
+.sec-h h2{font-size:18px;font-weight:900;color:var(--navy);letter-spacing:.04em}
+.sec-h::after{content:"";flex:1;height:1px;background:var(--line);transform:translateY(-4px)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:12px;transition:border-color .2s,box-shadow .2s}
+.card.missing{border-color:var(--warn);box-shadow:0 0 0 3px rgba(200,32,47,.10)}
+.q{display:grid;grid-template-columns:34px 1fr;column-gap:8px}
+.q .n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:17px;color:var(--red);line-height:1.55}
+.q .t{font-weight:500;font-size:15.5px}
+.q .t .chip{display:inline-block;font-size:12px;font-weight:700;color:var(--navy);background:#E8EDF6;border-radius:4px;padding:0 7px;margin-right:6px;vertical-align:1px}
+.q .t .opt{font-size:12px;color:var(--muted);font-weight:500;margin-left:6px}
+.q .t .req{color:var(--red);margin-left:3px}
+.ans{grid-column:2;margin-top:12px}
+.hint{grid-column:2;font-size:12.5px;color:var(--warn);margin-top:6px;display:none}
+.card.missing .hint{display:block}
+
+/* Likert */
+.lik{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lik button{border:1.5px solid var(--line);background:#FBFAF7;border-radius:8px;padding:8px 2px 7px;cursor:pointer;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:60px;transition:all .15s}
+.lik button .v{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;line-height:1}
+.lik button .l{font-size:11.5px;line-height:1.25;color:var(--muted);text-align:center;word-break:keep-all}
+.lik button:hover{border-color:var(--navy)}
+.lik button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.lik button.on .l{color:#D6DEEE}
+
+/* EPA & choice */
+.epa{display:grid;gap:6px}
+.epa button{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;text-align:left;border:1.5px solid var(--line);background:#FBFAF7;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:14.5px;color:var(--ink);transition:all .15s}
+.epa button .lv{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:16px;color:var(--navy);letter-spacing:.04em}
+.epa button:hover{border-color:var(--navy)}
+.epa button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.epa button.on .lv{color:#fff}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pills button{border:1.5px solid var(--line);background:#FBFAF7;border-radius:999px;padding:7px 16px;font-size:14.5px;cursor:pointer;color:var(--ink);transition:all .15s}
+.pills button:hover{border-color:var(--navy)}
+.pills button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* inputs */
+textarea,input[type=text],input[type=number]{width:100%;border:1.5px solid var(--line);border-radius:8px;background:#FBFAF7;padding:10px 12px;font:inherit;font-size:15px;color:var(--ink);outline:none;transition:border-color .15s}
+textarea{min-height:84px;resize:vertical;line-height:1.6}
+textarea:focus,input:focus{border-color:var(--navy);background:#fff}
+.num{display:flex;align-items:center;gap:8px;max-width:180px}
+.num span{color:var(--muted)}
+.idgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px}
+.field label{display:block;font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.field label .req{color:var(--red);margin-left:3px}
+.field.full{grid-column:1/-1}
+.field.missing input,.field.missing .pills button{border-color:var(--warn)}
+.remember{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+
+/* submit */
+.submit{margin-top:24px;display:grid;gap:10px}
+.btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;border:0;border-radius:8px;padding:14px 20px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.06em;transition:background .15s}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-d)}
+.btn-red:disabled{background:#B9A9A9;cursor:wait}
+.btn-line{background:transparent;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-line:hover{background:#E8EDF6}
+.err{font-size:13.5px;color:var(--warn);text-align:center;min-height:20px}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* course picker */
+.pick{display:grid;gap:10px;margin-top:6px}
+.pick button{display:grid;grid-template-columns:44px 1fr 20px;align-items:center;gap:12px;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:16px;cursor:pointer;color:var(--ink);transition:all .15s}
+.pick button:hover{border-color:var(--navy);transform:translateY(-1px)}
+.pick .idx{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;color:var(--red);line-height:1}
+.pick .nm{font-weight:700;font-size:16px;color:var(--navy)}
+.pick .ds{font-size:13px;color:var(--muted)}
+.pick .ar{color:var(--navy);font-weight:700}
+.pick.pair{grid-template-columns:1fr 1fr}
+.pick.pair button{grid-template-columns:1fr 20px;align-items:start}
+.pick.pair .ar{align-self:center}
+.pick .when{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.16em;font-size:12px;color:var(--red)}
+.pick.pair .nm{font-size:18px}
+.switch{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:16px}
+.switch .cur{font-size:13px;color:var(--muted)}
+.switch .cur b{display:block;font-size:15.5px;color:var(--navy)}
+.switch button{flex:none;border:1.5px solid var(--navy);background:transparent;color:var(--navy);border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700;cursor:pointer}
+
+/* done */
+.done{text-align:center;padding:40px 8px}
+.done .mark{width:68px;height:68px;border-radius:50%;background:var(--navy);margin:0 auto 18px;display:grid;place-items:center}
+.done h2{font-size:24px;font-weight:900;color:var(--red);margin-bottom:6px}
+.done p{color:var(--muted);font-size:14.5px}
+.done .actions{display:grid;gap:10px;max-width:320px;margin:24px auto 0}
+.foot{text-align:center;font-size:12px;color:var(--muted);padding:8px 0 28px}
+.hide{display:none!important}
+
+@media (max-width:420px){
+  .card{padding:16px 14px}
+  .q{grid-template-columns:28px 1fr;column-gap:6px}
+  .ans,.hint{grid-column:1/-1}
+  .lik{gap:4px}
+  .lik button .l{font-size:10.5px}
+  .idgrid{grid-template-columns:1fr}
+  .epa button{grid-template-columns:56px 1fr;font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<header class="poster">
+  <div class="poster-art"><svg id="art" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg></div>
+  <div class="poster-meta">
+    <span class="kicker">PGY · Emergency Module</span>
+    <span class="meta-tag" id="tag"></span>
+  </div>
+  <h1 class="poster-title" id="title"></h1>
+  <div class="rules"></div>
+  <p class="lead" id="lead"></p>
+</header>
+
+<div class="progress hide" id="progress"><div class="wrap"><b id="pgName"></b><div class="bar"><i id="pgBar"></i></div><span id="pgTxt"></span></div></div>
+
+<main class="wrap" id="app"></main>
+<div class="foot">奇美醫院教學部臨床技能中心．一般內科．急診醫學部</div>
+
+<script>
+/* ★ 部署 GAS 後，把網頁應用程式網址貼在這裡 ★ */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbydvnST-K9sQ3l3jgDMtX0Rg9uEjNgqOmPf_HCrMQMrLtBSzBhuQg0r5JNHBrSp7w9Mng/exec';
+
+const MODE  = 'multi';           // single = 單一問卷；multi = 選課程
+const FORMS = [{"key": "sim_airway", "sheet": "擬真1.0_呼吸道回饋", "title": "擬真1.0－急性呼吸道處置課程回饋表", "short": "擬真 1.0 急性呼吸道處置", "tag": "課程問卷", "desc": "高擬真情境模擬課程結束後填寫。", "month": "目前為第幾個月內科訓練", "sections": [{"title": "課程滿意度", "items": [{"type": "likert", "h": "教師對課程主題的掌握程度與講解清晰度", "scale": "satisfy"}, {"type": "likert", "h": "課程內容對急性呼吸道處置技能提升的幫助", "scale": "satisfy"}, {"type": "likert", "h": "模擬情境的真實性與實用性", "scale": "satisfy"}, {"type": "likert", "h": "教師提供的指導與即時回饋", "scale": "satisfy"}, {"type": "likert", "h": "課程對您臨床(或值班)自信心的提升", "scale": "satisfy"}, {"type": "likert", "h": "在課程中能否感受到支持與學習動力", "scale": "satisfy"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "對於急性呼吸道處置，我認為自己："}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "請描述課程中您覺得最有幫助的內容或活動，為什麼？", "optional": false}, {"type": "text", "h": "您對此次急性呼吸道處置技能學習的總體感受如何？有沒有什麼建議讓這門課更有價值？", "optional": false}, {"type": "text", "h": "您覺得本次訓練的教學方法（如講授、模擬訓練）有哪些優點和缺點？有什麼地方可以改進以更好地幫助您學習急性呼吸道處置技能？", "optional": false}, {"type": "text", "h": "在進行急性呼吸道處置操作時，您覺得有哪些因素增強了您的自信心？又有哪些因素可能削弱了您的自信心？", "optional": false}, {"type": "text", "h": "您覺得自己是否已準備好在臨床環境中進行急性呼吸道處置？如果不夠準備，您認為還需要進行哪些準備或訓練？", "optional": false}, {"type": "text", "h": "您在進行急性呼吸道處置操作時如何應對壓力或緊張情緒？有哪些策略或技巧對您有幫助？", "optional": false}, {"type": "text", "h": "經過這堂課後，請列出三個(或更多)「最想記得」或「最想加強」的知識點？或有哪些特定的技巧您覺得還不夠熟練？ (問卷後回答會傳給您)", "optional": false}, {"type": "text", "h": "針對上一題，有關「不熟悉的知識或技能」，想想看之後能怎麼改善（或教學部能如何幫忙）？", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？(ex. 特別的經驗或收穫分享？)", "optional": false}]}]}, {"key": "trm", "sheet": "TRM急救團隊", "title": "TRM 急救高效團隊操作自我評估問卷", "short": "TRM 急救高效團隊操作", "tag": "課程問卷", "desc": "急救高效能團隊（TRM）演練結束後填寫。", "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解高效 ACLS 團隊運作的基本原則（例如溝通、 角色分配、領導）。", "scale": "know"}, {"type": "likert", "h": "我能夠在 ACLS 操作中有效執行分配給我的角色。", "scale": "able"}, {"type": "likert", "h": "我能在團隊中適當地擔任領導者角色並指導其他成員。", "scale": "able"}, {"type": "likert", "h": "我在臨床急救場景中能夠勝任 ACLS 團隊的一員，並 協助進行有效的搶救。", "scale": "conf"}, {"type": "likert", "h": "我有動力提升我在 ACLS 團隊操作中的表現。", "scale": "motiv"}, {"type": "likert", "h": "我能在高壓情境（如心跳停止的急救中）保持冷靜並有 效地進行操作。", "scale": "can"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度 EPA自評-對於執行 ACLS 處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次訓練課程對提升我的急救處置技能非常有幫助。", "scale": "agree"}, {"type": "likert", "h": "會想來參加下一次類似的課程？", "scale": "agree"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "(有關反思) 經過這堂課後，有關急救高效能團隊(TRM)練習，請列出三個(或更多)「最想記得」或「最想加強」的知識點？或有哪些特定的技巧您覺得還不夠熟練？ (問卷後回答會傳給您)", "optional": false}, {"type": "text", "h": "(有關反思) 針對上一題，有關「不熟悉的知識或技能」，想想看之後能怎麼改善 (或教學部能如何幫忙)？", "optional": false}, {"type": "text", "h": "(有關反思) 在進行急救高效能團隊(TRM)演練時，哪些因素增強了您的自信心？又有哪些因素可能削弱了您的自信心？", "optional": false}, {"type": "text", "h": "(有關反思) 您是否覺得自己已準備好在臨床情境中進行急救高效能團隊(TRM)操作？", "optional": false}, {"type": "text", "h": "(有關反思) 在急救團隊演練時，您如何應對壓力或緊張情緒？有哪些策略或技巧對您有所幫助？", "optional": false}, {"type": "text", "h": "(有關課程) 謝謝您的參與，辛苦了 :) 想請問這堂課最令您印象深刻的是什麼？有沒有什麼特別的收穫或經驗想分享？", "optional": false}, {"type": "text", "h": "(有關課程) 您覺得本次訓練的教學方法（如講授、模擬訓練）有哪些優點和缺點？有什麼地方可以改進以更好地幫助您學習急救高效能團隊(TRM)？", "optional": false}, {"type": "text", "h": "您對於未來急救相關的訓練有何建議？您認為哪些方面的訓練也許會更有效？(自由選填)", "optional": true}]}]}, {"key": "shock", "sheet": "休克處置", "title": "休克處置課後評估問卷", "short": "休克處置", "tag": "課程問卷", "desc": "休克處置課程結束後填寫。", "draft": true, "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解休克的分類（低血容性、心因性、分佈性、阻塞性）與其病生理機轉。", "scale": "know"}, {"type": "likert", "h": "我能夠依據臨床表現、檢查數據與床邊超音波判斷休克的類型。", "scale": "able"}, {"type": "likert", "h": "我能夠正確執行休克的初步處置（輸液復甦、升壓劑選擇與使用）。", "scale": "able"}, {"type": "likert", "h": "在實際臨床環境（例如值班）中，我對於處置休克病人感到自信。", "scale": "conf"}, {"type": "likert", "h": "我有動力進一步提升和精進我的休克處置技能。", "scale": "motiv"}, {"type": "likert", "h": "我能夠在高壓情境下（如值班急救場景）進行有效的休克處置。", "scale": "can"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度 EPA自評-對於休克處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次課程對提升我的休克處置技能非常有幫助", "scale": "agree"}, {"type": "likert", "h": "會想參加下一次類似的課程", "scale": "agree"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "請描述課程中您覺得最有幫助的內容或活動，為什麼？", "optional": false}, {"type": "text", "h": "經過這堂課後，請列出三個(或更多)「最想記得」或「最想加強」的知識點。", "optional": false}, {"type": "text", "h": "本次課程有什麼地方可以改進，能更好幫助您學習？", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？", "optional": false}]}]}, {"key": "cvc", "sheet": "中央靜脈導管", "title": "中央靜脈導管置入技能自我評估問卷", "short": "中央靜脈導管置入", "tag": "課程問卷", "desc": "中央靜脈導管（CVC）模具與超音波操作課程結束後填寫。", "month": null, "sections": [{"title": "自我評估", "items": [{"type": "likert", "h": "我了解中央靜脈導管置入所需的解剖結構和生理知識", "scale": "know"}, {"type": "likert", "h": "我能夠準確進行無菌操作並插入中央靜脈導管", "scale": "able"}, {"type": "likert", "h": "我能夠使用超音波輔助來確認導管位置", "scale": "able"}, {"type": "likert", "h": "在實際臨床環境（例如值班）中，我對於成功進行中央 靜脈導管置入感到自信。", "scale": "conf"}, {"type": "likert", "h": "我有動力進一步提升和精進我的中央靜脈導管置入技能", "scale": "motiv"}, {"type": "likert", "h": "我認為自己能夠在高壓情境下（如值班急救場景）進行 中央靜脈導管置入操作。", "scale": "can"}]}, {"title": "信任程度（EPA 自評）", "items": [{"type": "epa", "h": "信任程度EPA-自評-對於中央靜脈導管置入處置，我認為自己："}]}, {"title": "課程回饋", "items": [{"type": "likert", "h": "我認為本次課程對提升我的中央靜脈導管置入技能非常有幫助", "scale": "agree"}, {"type": "likert", "h": "會想參加下一次類似的課程", "scale": "agree"}]}, {"title": "反思與回饋", "items": [{"type": "text", "h": "請描述課程中您覺得最有幫助的內容或活動，為什麼?", "optional": false}, {"type": "text", "h": "本次模具操作與超音波教學有什麼地方可以改進，能更好幫助您學習?", "optional": false}, {"type": "text", "h": "經過這堂課後，請列出三個(或更多) [最想記得]或[最想加強]的知識點。", "optional": false}, {"type": "text", "h": "謝謝你/妳的參與，辛苦了 :) 最後想請問：這堂課最令你/妳印象深刻的是什麼？", "optional": false}]}]}];
+const PAGE  = {"title": "急救模組課程問卷", "tag": "選擇課程", "desc": "請先選擇您今天參加的課程，系統會帶出該課程的問卷，上完課填一次即可。", "home": "course-survey.html"};
+
+const SCALES = {
+  know:   ['完全不了解','不了解','一般','了解','非常了解'],
+  able:   ['完全沒有能力','沒有能力','一般','有能力','非常有能力'],
+  conf:   ['完全不自信','不自信','一般','有自信','非常有自信'],
+  motiv:  ['非常沒動力','沒動力','一般','有動力','非常有動力'],
+  agree:  ['非常不同意','不同意','一般','同意','非常同意'],
+  can:    ['完全不能','不能','一般','能','完全能'],
+  satisfy:['非常不滿意','不滿意','普通','滿意','非常滿意']
+};
+const EPA = [
+  ['Level 1','還不能自己處理，僅可在旁觀看'],
+  ['Level 2','可處理，但需要VS在旁監督'],
+  ['Level 3','可處理，但VS在需要幫忙需要「立即」出現'],
+  ['Level 4','可處理，處理完再跟VS報備即可'],
+  ['Level 5','可處理，且有足夠能力可教導他人']
+];
+const MONTHS = ['第一個月','第二個月','第三個月'];
+const RANKS  = ['PGY1','PGY2','其他'];
+
+let form=null, ans={}, startTime=null;
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function disp(h){
+  return String(h).replace(/ /g,' ')
+    .replace(/([一-鿿，、。）])\s+(?=[一-鿿（])/g,'$1')
+    .replace(/\s{2,}/g,' ').trim();
+}
+function qText(h){
+  let t=disp(h), chip='';
+  const m=t.match(/^\((有關反思|有關課程|反思與回饋)\)\s*/);
+  if(m){chip=m[1].replace('有關','');t=t.slice(m[0].length);}
+  return (chip?`<span class="chip">${chip}</span>`:'')+esc(t);
+}
+const store={
+  get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+
+/* ---------- poster art: flowing stripes ---------- */
+(function art(){
+  const svg=$('#art'), ns='http://www.w3.org/2000/svg';
+  const add=(d,fill)=>{const p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill',fill);svg.appendChild(p);};
+  // cream ground sweeping in from bottom-left
+  add('M0 300 L0 130 C200 105 330 200 480 188 C610 176 700 110 800 64 L800 300 Z','#F6F3EC');
+  // navy ribbons: wide & spaced at left, tapering toward the upper right
+  const N=7;
+  for(let i=0;i<N;i++){
+    const a=i/(N-1);
+    const y0=148+a*165, w0=9;
+    const x1=772, y1=44+a*28, w1=1.6;
+    const c1x=220, c1y=y0-60, c2x=520, c2y=130+a*62, wc=5;
+    add(`M-10 ${y0-w0} C${c1x} ${c1y-w0} ${c2x} ${c2y-wc} ${x1} ${y1-w1} L${x1} ${y1+w1} C${c2x} ${c2y+wc} ${c1x} ${c1y+w0} -10 ${y0+w0} Z`,'#1E3A6E');
+  }
+  // small cross mark at the convergence
+  add('M763 14 h9 v9 h9 v9 h-9 v9 h-9 v-9 h-9 v-9 h9 Z','#F6F3EC');
+})();
+
+/* ---------- header ---------- */
+function setHeader(f){
+  $('#title').innerHTML = esc(f ? f.title : PAGE.title).replace('處置自我','處置<br>自我').replace('操作自我','操作<br>自我').replace('－','<br>');
+  $('#tag').textContent   = f ? f.tag   : PAGE.tag;
+  $('#lead').textContent  = f ? f.desc  : PAGE.desc;
+  document.title = f ? `${f.title}｜${f.tag}` : PAGE.title;
+}
+
+/* ---------- course picker (multi) ---------- */
+function renderPicker(){
+  form=null; setHeader(null); $('#progress').classList.add('hide'); window.scrollTo(0,0);
+  const pair = PAGE.picker==='pair';
+  $('#app').innerHTML = `
+    <div class="sec-h"><span class="no">01</span><h2>${esc(PAGE.pickTitle||'請選擇您參加的課程')}</h2></div>
+    <div class="pick ${pair?'pair':''}">${FORMS.map((f,i)=> pair ? `
+      <button data-k="${f.key}">
+        <span><span class="when">${esc(f.en||'')}</span><br><span class="nm">${esc(f.short)}</span><br><span class="ds">${esc(f.note||'')}</span></span>
+        <span class="ar">›</span>
+      </button>` : `
+      <button data-k="${f.key}">
+        <span class="idx">${String(i+1).padStart(2,'0')}</span>
+        <span><span class="nm">${esc(f.short||f.title)}</span><br><span class="ds">${esc(f.title)}</span></span>
+        <span class="ar">›</span>
+      </button>`).join('')}</div>`;
+  $('#app').querySelectorAll('.pick button').forEach(b=>b.onclick=()=>{
+    const u=new URL(location); u.searchParams.set('c',b.dataset.k); history.pushState(null,'',u);
+    renderForm(FORMS.find(f=>f.key===b.dataset.k));
+  });
+}
+/* ---------- form ---------- */
+function renderForm(f){
+  form=f; ans={}; startTime=new Date().toISOString();
+  setHeader(f); window.scrollTo(0,0);
+  const me=store.get('ems_identity')||{};
+  let n=0, sec=1;
+  let h='';
+  if(MODE==='multi') h+=`<div class="switch"><div class="cur">目前填寫<b>${esc(f.short||f.title)}</b></div><button id="chg">${esc(PAGE.switchLabel||'更換課程')}</button></div>`;
+  h+=`<div class="sec-h"><span class="no">01</span><h2>基本資料</h2></div>
+  <div class="card"><div class="idgrid">
+    <div class="field" data-req="姓名"><label>姓名<span class="req">*</span></label><input type="text" id="f_name" autocomplete="name" value="${esc(me.name||'')}"></div>
+    <div class="field" data-req="人事號"><label>人事號<span class="req">*</span></label><input type="text" id="f_id" autocomplete="off" placeholder="例：B508G7" value="${esc(me.id||'')}"></div>
+    <div class="field full" data-req="職級"><label>職級<span class="req">*</span></label><div class="pills" data-h="職級">${RANKS.map(r=>`<button type="button" data-v="${r}">${r}</button>`).join('')}</div></div>
+    ${f.month?`<div class="field full" data-req="${esc(f.month)}"><label>${esc(disp(f.month))}<span class="req">*</span></label><div class="pills" data-h="${esc(f.month)}">${MONTHS.map(r=>`<button type="button" data-v="${r}">${r}</button>`).join('')}</div></div>`:''}
+    <div class="remember">姓名與人事號會記在這台裝置上，下次填寫自動帶入。</div>
+  </div></div>`;
+  f.sections.forEach(s=>{
+    sec++;
+    h+=`<div class="sec-h"><span class="no">${String(sec).padStart(2,'0')}</span><h2>${esc(s.title)}</h2></div>`;
+    s.items.forEach(it=>{
+      n++;
+      const req = !it.optional;
+      h+=`<div class="card item" data-h="${esc(it.h)}" data-type="${it.type}" ${req?'data-required="1"':''}>
+        <div class="q"><span class="n">${String(n).padStart(2,'0')}</span>
+        <div class="t">${qText(it.h)}${req?'<span class="req">*</span>':'<span class="opt">（選填）</span>'}</div>
+        <div class="ans">${answerHtml(it)}</div>
+        <div class="hint">此題尚未作答</div></div></div>`;
+    });
+  });
+  h+=`<div class="submit"><div class="err" id="err"></div><button class="btn btn-red" id="send">送出問卷</button></div>`;
+  $('#app').innerHTML=h;
+  $('#progress').classList.remove('hide'); $('#pgName').textContent=f.short||f.tag;
+
+  if(me.rank) pickPill('職級',me.rank);
+  if(MODE==='multi') $('#chg').onclick=()=>{const u=new URL(location);u.searchParams.delete('c');history.pushState(null,'',u);renderPicker();};
+  bind(); updateProgress();
+}
+function answerHtml(it){
+  if(it.type==='likert'){
+    return `<div class="lik">${SCALES[it.scale].map((l,i)=>`<button type="button" data-v="${i+1}${l}"><span class="v">${i+1}</span><span class="l">${l}</span></button>`).join('')}</div>`;
+  }
+  if(it.type==='epa'){
+    return `<div class="epa">${EPA.map(([lv,d])=>`<button type="button" data-v="${lv}- ${d}"><span class="lv">${lv}</span><span>${d}</span></button>`).join('')}</div>`;
+  }
+  if(it.type==='choice'){
+    return `<div class="pills">${it.opts.map(o=>`<button type="button" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+  }
+  if(it.type==='number'){
+    return `<div class="num"><input type="number" min="0" max="99" inputmode="numeric"><span>${it.unit||''}</span></div>`;
+  }
+  return `<textarea placeholder="請輸入您的想法"></textarea>`;
+}
+function pickPill(h,v){
+  const box=[...document.querySelectorAll('.pills[data-h]')].find(p=>p.dataset.h===h);
+  if(!box) return;
+  box.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  ans[h]=v;
+}
+function bind(){
+  // identity pills
+  document.querySelectorAll('.pills[data-h]').forEach(box=>{
+    box.querySelectorAll('button').forEach(b=>b.onclick=()=>{pickPill(box.dataset.h,b.dataset.v);box.closest('.field').classList.remove('missing');updateProgress();});
+  });
+  ['#f_name','#f_id'].forEach(s=>$(s).addEventListener('input',e=>{
+    if(s==='#f_id'){const p=e.target.selectionStart;e.target.value=e.target.value.toUpperCase().replace(/\s/g,'');e.target.setSelectionRange(p,p);}
+    e.target.closest('.field').classList.remove('missing');updateProgress();
+  }));
+  document.querySelectorAll('.card.item').forEach(card=>{
+    const h=card.dataset.h, type=card.dataset.type;
+    if(type==='likert'||type==='epa'||type==='choice'){
+      card.querySelectorAll('.ans button').forEach(b=>b.onclick=()=>{
+        card.querySelectorAll('.ans button').forEach(x=>x.classList.toggle('on',x===b));
+        ans[h]=b.dataset.v; card.classList.remove('missing'); updateProgress();
+      });
+    }else{
+      const inp=card.querySelector('textarea,input');
+      inp.addEventListener('input',()=>{
+        ans[h]= type==='number' ? (inp.value===''?'':Number(inp.value)) : inp.value;
+        if(String(ans[h]).trim()!=='') card.classList.remove('missing');
+        updateProgress();
+      });
+    }
+  });
+  $('#send').onclick=submit;
+}
+function filled(v){return v!==undefined && v!==null && String(v).trim()!=='';}
+function requiredList(){
+  const list=[{h:'姓名',el:$('#f_name').closest('.field'),v:$('#f_name').value},
+              {h:'人事號',el:$('#f_id').closest('.field'),v:$('#f_id').value},
+              {h:'職級',el:document.querySelector('[data-req="職級"]'),v:ans['職級']}];
+  if(form.month) list.push({h:form.month,el:document.querySelector('.pills[data-h]:not([data-h="職級"])').closest('.field'),v:ans[form.month]});
+  document.querySelectorAll('.card.item[data-required]').forEach(c=>list.push({h:c.dataset.h,el:c,v:ans[c.dataset.h]}));
+  return list;
+}
+function updateProgress(){
+  const l=requiredList(), d=l.filter(x=>filled(x.v)).length;
+  $('#pgBar').style.width=(d/l.length*100)+'%';
+  $('#pgTxt').textContent=`${d} / ${l.length}`;
+}
+async function submit(){
+  const miss=requiredList().filter(x=>!filled(x.v));
+  miss.forEach(x=>x.el.classList.add('missing'));
+  if(miss.length){
+    $('#err').textContent=`還有 ${miss.length} 題尚未完成，已用紅框標示。`;
+    miss[0].el.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  if(!/^https:\/\/script\.google\.com\//.test(GAS_URL)){$('#err').textContent='尚未設定 GAS 網址，請聯絡臨床技能中心。';return;}
+  const name=$('#f_name').value.trim(), id=$('#f_id').value.trim().toUpperCase();
+  store.set('ems_identity',{name,id,rank:ans['職級']});
+  const answers={'姓名':name,'人事號':id};
+  Object.keys(ans).forEach(k=>{answers[k]=typeof ans[k]==='string'?ans[k].trim():ans[k];});
+  const btn=$('#send'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>送出中…'; $('#err').textContent='';
+  try{
+    const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({form:form.key,startTime,answers})});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'送出失敗');
+    showDone(name);
+  }catch(e){
+    btn.disabled=false; btn.textContent='重新送出';
+    $('#err').textContent='送出失敗，請檢查網路後再試一次。（'+e.message+'）';
+  }
+}
+function showDone(name){
+  $('#progress').classList.add('hide'); window.scrollTo(0,0);
+  $('#app').innerHTML=`<div class="done">
+    <div class="mark"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h2>已送出，謝謝您！</h2>
+    <p>${esc(name)}，您的「${esc(form.short||form.title)}」${esc(form.tag)}問卷已完成。<br>辛苦了 :)</p>
+    <div class="actions">
+      ${MODE==='multi'?`<button class="btn btn-line" id="again">${esc(PAGE.againLabel||'填寫其他課程問卷')}</button>`:''}
+    </div></div>`;
+  if(MODE==='multi') $('#again').onclick=()=>{const u=new URL(location);u.searchParams.delete('c');history.pushState(null,'',u);renderPicker();};
+}
+
+/* ---------- boot ---------- */
+function boot(){
+  if(MODE==='single'){renderForm(FORMS[0]);return;}
+  const k=new URLSearchParams(location.search).get('c');
+  const f=FORMS.find(x=>x.key===k);
+  f?renderForm(f):renderPicker();
+}
+window.addEventListener('popstate',boot);
+boot();
+</script>
+</body>
+</html>
