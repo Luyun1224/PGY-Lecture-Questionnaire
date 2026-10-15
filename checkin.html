@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>急救模組課程簽到</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#C8202F; --red-d:#A3172A; --navy:#1E3A6E; --navy-d:#14284D;
+  --paper:#F6F3EC; --card:#FFFFFF; --line:#E2DED4; --ink:#1A2233; --muted:#6A7080;
+  --ok:#1F7A4D; --warn:#C8202F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.6;font-size:15.5px}
+button{font-family:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+
+/* ===== Poster header ===== */
+.poster{max-width:760px;margin:0 auto;padding:16px 16px 0}
+.poster-art{position:relative;background:var(--red);border-radius:4px;overflow:hidden;aspect-ratio:16/6}
+.poster-art svg{position:absolute;inset:0;width:100%;height:100%}
+.poster-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0 6px;color:var(--navy)}
+.kicker{font-family:"Barlow Condensed",sans-serif;font-weight:600;letter-spacing:.22em;font-size:12.5px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.meta-tag{font-weight:700;font-size:13.5px;color:#fff;background:var(--navy);border-radius:4px;padding:2px 10px;white-space:nowrap}
+.meta-tag:empty{display:none}
+.poster-title{font-weight:900;color:var(--red);font-size:clamp(26px,7vw,42px);line-height:1.15;letter-spacing:.02em}
+.rules{height:7px;margin:8px 0 0;border-top:2px solid var(--navy);border-bottom:1px solid var(--navy)}
+.lead{color:var(--muted);font-size:14px;padding:12px 0 0}
+.lead:empty{display:none}
+
+/* ===== Progress ===== */
+.progress{position:sticky;top:0;z-index:20;background:rgba(246,243,236,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin-top:16px}
+.progress .wrap{display:flex;align-items:center;gap:12px;height:44px}
+.bar{flex:1;height:6px;background:#E4DFD3;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--navy);transition:width .25s}
+.progress span{font-size:13px;color:var(--navy);font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;text-align:right}
+.progress b{font-size:13px;color:var(--muted);font-weight:500;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== Sections & cards ===== */
+main.wrap{padding:8px 16px 40px}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin:28px 0 12px}
+.sec-h .no{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:22px;color:var(--red);line-height:1}
+.sec-h h2{font-size:18px;font-weight:900;color:var(--navy);letter-spacing:.04em}
+.sec-h::after{content:"";flex:1;height:1px;background:var(--line);transform:translateY(-4px)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:12px;transition:border-color .2s,box-shadow .2s}
+.card.missing{border-color:var(--warn);box-shadow:0 0 0 3px rgba(200,32,47,.10)}
+.q{display:grid;grid-template-columns:34px 1fr;column-gap:8px}
+.q .n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:17px;color:var(--red);line-height:1.55}
+.q .t{font-weight:500;font-size:15.5px}
+.q .t .chip{display:inline-block;font-size:12px;font-weight:700;color:var(--navy);background:#E8EDF6;border-radius:4px;padding:0 7px;margin-right:6px;vertical-align:1px}
+.q .t .opt{font-size:12px;color:var(--muted);font-weight:500;margin-left:6px}
+.q .t .req{color:var(--red);margin-left:3px}
+.ans{grid-column:2;margin-top:12px}
+.hint{grid-column:2;font-size:12.5px;color:var(--warn);margin-top:6px;display:none}
+.card.missing .hint{display:block}
+
+/* Likert */
+.lik{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lik button{border:1.5px solid var(--line);background:#FBFAF7;border-radius:8px;padding:8px 2px 7px;cursor:pointer;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:60px;transition:all .15s}
+.lik button .v{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:19px;line-height:1}
+.lik button .l{font-size:11.5px;line-height:1.25;color:var(--muted);text-align:center;word-break:keep-all}
+.lik button:hover{border-color:var(--navy)}
+.lik button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.lik button.on .l{color:#D6DEEE}
+
+/* EPA & choice */
+.epa{display:grid;gap:6px}
+.epa button{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;text-align:left;border:1.5px solid var(--line);background:#FBFAF7;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:14.5px;color:var(--ink);transition:all .15s}
+.epa button .lv{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:16px;color:var(--navy);letter-spacing:.04em}
+.epa button:hover{border-color:var(--navy)}
+.epa button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.epa button.on .lv{color:#fff}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pills button{border:1.5px solid var(--line);background:#FBFAF7;border-radius:999px;padding:7px 16px;font-size:14.5px;cursor:pointer;color:var(--ink);transition:all .15s}
+.pills button:hover{border-color:var(--navy)}
+.pills button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* inputs */
+textarea,input[type=text],input[type=number]{width:100%;border:1.5px solid var(--line);border-radius:8px;background:#FBFAF7;padding:10px 12px;font:inherit;font-size:15px;color:var(--ink);outline:none;transition:border-color .15s}
+textarea{min-height:84px;resize:vertical;line-height:1.6}
+textarea:focus,input:focus{border-color:var(--navy);background:#fff}
+.num{display:flex;align-items:center;gap:8px;max-width:180px}
+.num span{color:var(--muted)}
+.idgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px}
+.field label{display:block;font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.field label .req{color:var(--red);margin-left:3px}
+.field.full{grid-column:1/-1}
+.field.missing input,.field.missing .pills button{border-color:var(--warn)}
+.remember{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+
+/* submit */
+.submit{margin-top:24px;display:grid;gap:10px}
+.btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;border:0;border-radius:8px;padding:14px 20px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.06em;transition:background .15s}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-d)}
+.btn-red:disabled{background:#B9A9A9;cursor:wait}
+.btn-line{background:transparent;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-line:hover{background:#E8EDF6}
+.err{font-size:13.5px;color:var(--warn);text-align:center;min-height:20px}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* course picker */
+.pick{display:grid;gap:10px;margin-top:6px}
+.pick button{display:grid;grid-template-columns:44px 1fr 20px;align-items:center;gap:12px;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:16px;cursor:pointer;color:var(--ink);transition:all .15s}
+.pick button:hover{border-color:var(--navy);transform:translateY(-1px)}
+.pick .idx{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;color:var(--red);line-height:1}
+.pick .nm{font-weight:700;font-size:16px;color:var(--navy)}
+.pick .ds{font-size:13px;color:var(--muted)}
+.pick .ar{color:var(--navy);font-weight:700}
+.pick.pair{grid-template-columns:1fr 1fr}
+.pick.pair button{grid-template-columns:1fr 20px;align-items:start}
+.pick.pair .ar{align-self:center}
+.pick .when{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.16em;font-size:12px;color:var(--red)}
+.pick.pair .nm{font-size:18px}
+.switch{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:16px}
+.switch .cur{font-size:13px;color:var(--muted)}
+.switch .cur b{display:block;font-size:15.5px;color:var(--navy)}
+.switch button{flex:none;border:1.5px solid var(--navy);background:transparent;color:var(--navy);border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700;cursor:pointer}
+
+/* done */
+.done{text-align:center;padding:40px 8px}
+.done .mark{width:68px;height:68px;border-radius:50%;background:var(--navy);margin:0 auto 18px;display:grid;place-items:center}
+.done h2{font-size:24px;font-weight:900;color:var(--red);margin-bottom:6px}
+.done p{color:var(--muted);font-size:14.5px}
+.done .actions{display:grid;gap:10px;max-width:320px;margin:24px auto 0}
+.foot{text-align:center;font-size:12px;color:var(--muted);padding:8px 0 28px}
+.hide{display:none!important}
+
+@media (max-width:420px){
+  .card{padding:16px 14px}
+  .q{grid-template-columns:28px 1fr;column-gap:6px}
+  .ans,.hint{grid-column:1/-1}
+  .lik{gap:4px}
+  .lik button .l{font-size:10.5px}
+  .idgrid{grid-template-columns:1fr}
+  .epa button{grid-template-columns:56px 1fr;font-size:14px}
+}
+
+.pick button{grid-template-columns:44px 1fr 22px}
+.pick button.on{border-color:var(--navy);background:#E8EDF6}
+.pick button .ck{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);justify-self:end}
+.pick button.on .ck{background:var(--navy);border-color:var(--navy);box-shadow:inset 0 0 0 4px #E8EDF6}
+.pick button .nm{font-size:15px}
+.field.missing .pick button{border-color:var(--warn)}
+.qlink{display:grid;grid-template-columns:44px 1fr 20px;align-items:center;gap:12px;background:var(--card);border:1.5px solid var(--navy);border-radius:10px;padding:16px;color:var(--ink);text-decoration:none;transition:all .15s}
+.qlink:hover{background:#E8EDF6}
+.qlink .idx{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;color:var(--red);line-height:1}
+.qlink .nm{font-weight:700;font-size:16px;color:var(--navy)}
+.qlink .ds{font-size:13px;color:var(--muted)}
+.qlink .ar{color:var(--navy);font-weight:700}
+.done{padding:32px 8px 8px}
+input[type=date]{width:100%;border:1.5px solid var(--line);border-radius:8px;background:#FBFAF7;padding:9px 12px;font:inherit;font-size:15px;color:var(--ink);outline:none}
+input[type=date]:focus{border-color:var(--navy);background:#fff}
+.field.missing input[type=date]{border-color:var(--warn)}
+</style>
+</head>
+<body>
+<header class="poster">
+  <div class="poster-art"><svg id="art" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg></div>
+  <div class="poster-meta"><span class="kicker">PGY · Emergency Module</span><span class="meta-tag">課程簽到</span></div>
+  <h1 class="poster-title">急救模組課程<br>簽到處</h1>
+  <div class="rules"></div>
+  <p class="lead">請於上課當天簽到，簽到完成後可直接進入該課程的問卷。</p>
+</header>
+<main class="wrap" id="app"></main>
+<div class="foot">奇美醫院教學部臨床技能中心．一般內科．急診醫學部</div>
+<script>
+/* ★ GAS 網頁應用程式網址 ★ */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbydvnST-K9sQ3l3jgDMtX0Rg9uEjNgqOmPf_HCrMQMrLtBSzBhuQg0r5JNHBrSp7w9Mng/exec';
+
+const COURSES = [
+  {key:'airway', topic:'急性呼吸道處置課程', name:'急性呼吸道處置課程', links:[{label:'課前問卷',href:'airway.html?c=airway_pre',note:'上課前填寫'},{label:'課後問卷',href:'airway.html?c=airway_post',note:'上完課再填'}]},
+  {key:'sim_airway', topic:'呼吸道擬真練習1.0', name:'呼吸道擬真練習 1.0', links:[{label:'課程回饋表',href:'course-survey.html?c=sim_airway',note:'上完課填寫'}]},
+  {key:'trm', topic:'急救團隊演練TRM(含高級心臟救命術ACLS)', name:'急救團隊演練 TRM（含 ACLS）', links:[{label:'TRM 自我評估問卷',href:'course-survey.html?c=trm',note:'上完課填寫'}]},
+  {key:'shock', topic:'休克處置', name:'休克處置', links:[{label:'休克處置評估問卷',href:'course-survey.html?c=shock',note:'上完課填寫'}]},
+  {key:'cvc', topic:'中央靜脈導管CVC置放(含超音波導引練習)', name:'中央靜脈導管 CVC 置放（含超音波導引練習）', links:[{label:'CVC 技能自我評估問卷',href:'course-survey.html?c=cvc',note:'上完課填寫'}]},
+  {key:'concept', topic:'急救概念課', name:'急救概念課', links:[]}
+];
+const UNITS = ['4240一般科(PGY)','4200教學部(UGY)'];
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store={get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+let st={}, startTime=new Date().toISOString();
+
+(function art(){
+  const svg=$('#art'),ns='http://www.w3.org/2000/svg';
+  const add=(d,f)=>{const p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill',f);svg.appendChild(p);};
+  add('M0 300 L0 130 C200 105 330 200 480 188 C610 176 700 110 800 64 L800 300 Z','#F6F3EC');
+  for(let i=0;i<7;i++){const a=i/6,y0=148+a*165,w0=9,x1=772,y1=44+a*28,w1=1.6,c1y=y0-60,c2y=130+a*62,wc=5;
+    add(`M-10 ${y0-w0} C220 ${c1y-w0} 520 ${c2y-wc} ${x1} ${y1-w1} L${x1} ${y1+w1} C520 ${c2y+wc} 220 ${c1y+w0} -10 ${y0+w0} Z`,'#1E3A6E');}
+  add('M763 14 h9 v9 h9 v9 h-9 v9 h-9 v-9 h-9 v-9 h9 Z','#F6F3EC');
+})();
+
+function render(){
+  const me=store.get('ems_identity')||{};
+  const pre=new URLSearchParams(location.search).get('c');
+  st={date:today(), course:COURSES.find(c=>c.key===pre)||null, unit:me.unit||''};
+  $('#app').innerHTML=`
+  <div class="sec-h"><span class="no">01</span><h2>上課資訊</h2></div>
+  <div class="card"><div class="idgrid">
+    <div class="field full" data-req="date"><label>上課日期<span class="req">*</span></label><input type="date" id="f_date" value="${st.date}" style="max-width:220px"></div>
+    <div class="field full" data-req="course"><label>此次課程主題<span class="req">*</span></label>
+      <div class="pick" id="courses">${COURSES.map((c,i)=>`<button type="button" data-k="${c.key}"><span class="idx">${String(i+1).padStart(2,'0')}</span><span class="nm">${esc(c.name)}</span><span class="ck"></span></button>`).join('')}</div></div>
+  </div></div>
+  <div class="sec-h"><span class="no">02</span><h2>學員資料</h2></div>
+  <div class="card"><div class="idgrid">
+    <div class="field" data-req="name"><label>姓名<span class="req">*</span></label><input type="text" id="f_name" autocomplete="name" value="${esc(me.name||'')}"></div>
+    <div class="field" data-req="id"><label>人事號<span class="req">*</span></label><input type="text" id="f_id" autocomplete="off" placeholder="例：B508G7" value="${esc(me.id||'')}"></div>
+    <div class="field full" data-req="unit"><label>單位<span class="req">*</span></label><div class="pills" id="units">${UNITS.map(u=>`<button type="button" data-v="${u}" class="${u===st.unit?'on':''}">${u}</button>`).join('')}</div></div>
+    <div class="remember">姓名與人事號會記在這台裝置上，填問卷時自動帶入。</div>
+  </div></div>
+  <div class="submit"><div class="err" id="err"></div><button class="btn btn-red" id="send">簽到</button></div>`;
+  const pickCourse=k=>{st.course=COURSES.find(c=>c.key===k);document.querySelectorAll('#courses button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));$('[data-req="course"]').classList.remove('missing');};
+  document.querySelectorAll('#courses button').forEach(b=>b.onclick=()=>pickCourse(b.dataset.k));
+  if(st.course) pickCourse(st.course.key);
+  document.querySelectorAll('#units button').forEach(b=>b.onclick=()=>{st.unit=b.dataset.v;document.querySelectorAll('#units button').forEach(x=>x.classList.toggle('on',x===b));$('[data-req="unit"]').classList.remove('missing');});
+  $('#f_id').addEventListener('input',e=>{const p=e.target.selectionStart;e.target.value=e.target.value.toUpperCase().replace(/\s/g,'');e.target.setSelectionRange(p,p);});
+  ['#f_name','#f_id','#f_date'].forEach(s=>$(s).addEventListener('input',e=>e.target.closest('.field').classList.remove('missing')));
+  $('#send').onclick=submit;
+}
+async function submit(){
+  const name=$('#f_name').value.trim(), id=$('#f_id').value.trim().toUpperCase(), date=$('#f_date').value;
+  const miss=[]; if(!date)miss.push('date'); if(!st.course)miss.push('course'); if(!name)miss.push('name'); if(!id)miss.push('id'); if(!st.unit)miss.push('unit');
+  miss.forEach(k=>$(`[data-req="${k}"]`).classList.add('missing'));
+  if(miss.length){$('#err').textContent='請完成標示紅框的欄位。';$(`[data-req="${miss[0]}"]`).scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(!/^https:\/\/script\.google\.com\//.test(GAS_URL)){$('#err').textContent='尚未設定 GAS 網址，請聯絡臨床技能中心。';return;}
+  const me=store.get('ems_identity')||{}; store.set('ems_identity',{...me,name,id,unit:st.unit});
+  const btn=$('#send'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>簽到中…'; $('#err').textContent='';
+  try{
+    const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({form:'checkin',startTime,answers:{'上課日期':date,'此次課程主題':st.course.topic,'姓名':name,'人事號':id,'單位':st.unit}})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'簽到失敗');
+    done(name,date,j.dup);
+  }catch(e){btn.disabled=false;btn.textContent='重新簽到';$('#err').textContent='簽到失敗，請檢查網路後再試一次。（'+e.message+'）';}
+}
+function done(name,date,dup){
+  const c=st.course; window.scrollTo(0,0);
+  $('#app').innerHTML=`<div class="done">
+    <div class="mark"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h2>${dup?'您已經簽到過了':'簽到完成！'}</h2>
+    <p>${esc(name)}　${date.replace(/-/g,'/')}<br>${esc(c.name)}</p></div>
+    ${c.links.length?`<div class="sec-h"><span class="no">→</span><h2>課程問卷</h2></div>
+    <div class="pick">${c.links.map((l,i)=>`<a class="qlink" href="${l.href}"><span class="idx">${String(i+1).padStart(2,'0')}</span><span><span class="nm">${esc(l.label)}</span><br><span class="ds">${esc(l.note)}</span></span><span class="ar">›</span></a>`).join('')}</div>
+    <p class="lead" style="text-align:center">問卷是課程完成的一部分，請記得填寫，謝謝！</p>`:`<p class="lead" style="text-align:center">本課程不需填寫問卷，謝謝您的參與！</p>`}
+    <div class="submit"><button class="btn btn-line" id="again">幫其他人簽到</button></div>`;
+  $('#again').onclick=()=>{try{localStorage.removeItem('ems_identity')}catch(e){}render();};
+}
+render();
+</script>
+</body>
+</html>
