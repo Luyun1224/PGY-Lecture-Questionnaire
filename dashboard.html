@@ -513,7 +513,9 @@ function prepareCheckin(){
     if(best){best.a.done[f.key]={...r,late:dayDiff(best.s.date,r.date)};used.add(r);}
   }));
   // responses without a sign-in → nearest session of that course
-  FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date).forEach(r=>{
+  // (skip duplicates: the same person already has this form matched on a signed-in session)
+  const isDup=(fk,r)=>SESS.some(s=>s.course.forms.includes(fk)&&s.att.some(a=>a.done[fk]&&((r.id&&a.id&&r.id===a.id)||(r.name&&a.name&&r.name===a.name))));
+  FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date&&!isDup(f.key,r)).forEach(r=>{
     let best=null; SESS.filter(s=>s.course.forms.includes(f.key)).forEach(s=>{const [lo,hi]=win(f.key,s.date);if(r.date>=lo&&r.date<=hi&&(!best||Math.abs(dayDiff(s.date,r.date))<Math.abs(dayDiff(best.date,r.date))))best=s;});
     if(best)(best.orph[f.key]=best.orph[f.key]||[]).push(r);
   }));
@@ -667,8 +669,8 @@ function insight(lines){lines=lines.filter(Boolean);if(!lines.length)return '';r
 const smallN=n=>n>0&&n<10?`樣本數僅 ${n} 份，解讀宜保守，建議累積更多梯次再下結論。`:'';
 function insHero(courseKey){
   const y=yearStats(courseKey), L=[];
-  if(!y.sessions) return insight([`${THIS_YEAR} 年目前尚無簽到紀錄。`]);
-  L.push(`${THIS_YEAR} 年至今共開課 <b>${y.sessions} 場</b>、訓練 <b>${y.headcount} 人次</b>，平均每場 ${fmt(y.headcount/y.sessions,1)} 人；不重複學員 ${y.unique} 人${y.headcount>y.unique?`（有 ${y.headcount-y.unique} 人次為重複參訓）`:''}。`);
+  if(!y.sessions) return insight([`${fromLabel} 起目前尚無簽到紀錄。`]);
+  L.push(`${fromLabel} 至今共開課 <b>${y.sessions} 場</b>、訓練 <b>${y.headcount} 人次</b>，平均每場 ${fmt(y.headcount/y.sessions,1)} 人；不重複學員 ${y.unique} 人${y.headcount>y.unique?`（有 ${y.headcount-y.unique} 人次為重複參訓）`:''}。`);
   if(y.headcount) L.push(`學員組成以 ${y.pgy>=y.ugy?'PGY':'UGY'} 為主（PGY ${pc(y.pgy/y.headcount)}、UGY ${pc(y.ugy/y.headcount)}）。`);
   if(y.rate!=null){
     const lvl=y.rate>=.8?'回收狀況良好':y.rate>=.6?'回收尚可，仍有提升空間':'回收率偏低，建議至「簽到與回收」追蹤未填學員';
@@ -774,7 +776,7 @@ function insOverview(){
   if(!ks.length) return '';
   const tot=ks.reduce((n,x)=>n+x.y.sessions,0), hc=ks.reduce((n,x)=>n+x.y.headcount,0);
   const most=[...ks].sort((a,b)=>b.y.headcount-a.y.headcount)[0], q=ks.filter(x=>x.y.rate!=null);
-  const L=[`${THIS_YEAR} 年至今六個模組合計開課 <b>${tot} 場</b>、訓練 <b>${hc} 人次</b>；訓練人次最多的是「${most.c.name}」（${most.y.headcount} 人次）。`];
+  const L=[`${fromLabel} 至今六個模組合計開課 <b>${tot} 場</b>、訓練 <b>${hc} 人次</b>；訓練人次最多的是「${most.c.name}」（${most.y.headcount} 人次）。`];
   if(q.length){const hi=[...q].sort((a,b)=>b.y.rate-a.y.rate)[0],lo=[...q].sort((a,b)=>a.y.rate-b.y.rate)[0];
     L.push(`問卷回收率最高為「${hi.c.name}」（${pc(hi.y.rate)}），最低為「${lo.c.name}」（${pc(lo.y.rate)}）${lo.y.rate<.6?'，建議優先追蹤':''}。`);}
   return insight(L);
@@ -845,17 +847,18 @@ function render(){
 }
 
 /* ---------- 年度累計（以簽到為準） ---------- */
-const THIS_YEAR=String(new Date().getFullYear());
+const STAT_FROM='2026-08-01';   // 累計統計起算日
+const fromLabel=`${STAT_FROM.slice(0,4)}/${+STAT_FROM.slice(5,7)}/${+STAT_FROM.slice(8,10)}`;
 function yearStats(courseKey){
   const today=todayStr();
-  const ss=SESS.filter(s=>s.course.key===courseKey&&s.date.startsWith(THIS_YEAR)&&s.date<=today);
+  const ss=SESS.filter(s=>s.course.key===courseKey&&s.date>=STAT_FROM&&s.date<=today);
   const att=ss.flatMap(s=>s.att), st=ss.map(sStat);
   const need=st.reduce((n,t)=>n+t.need,0), got=st.reduce((n,t)=>n+t.got,0);
   return {sessions:ss.length, headcount:att.length, unique:new Set(att.map(a=>a.id||a.name)).size,
     pgy:att.filter(a=>/PGY/i.test(a.unit)).length, ugy:att.filter(a=>/UGY/i.test(a.unit)).length,
     last:ss.map(s=>s.date).sort().pop()||'', rate:need?got/need:null, got, need};
 }
-const ytdLabel=()=>`${THIS_YEAR} 年至今（統計至 ${todayStr().slice(5).replace('-','/')}）`;
+const ytdLabel=()=>`${fromLabel} 至今（統計至 ${todayStr().slice(5).replace('-','/')}）`;
 function moduleHero(courseKey){
   const y=yearStats(courseKey);
   return `<div class="tile hero-tile navy t-4"><div class="l">${ytdLabel()}</div><div class="hero-big num">${y.sessions}<small>場</small></div><div class="hero-cap">已開課場次${y.last?`　最近一場 ${y.last.slice(5).replace('-','/')}`:''}</div></div>
