@@ -538,7 +538,7 @@ const noteIn=(a)=>`<input class="trk-note" data-tk="${esc(a.key)}" value="${esc(
 /* ---------- 簡訊提醒（56 字內） ---------- */
 const SMS_MAX=56;
 // 各問卷的預設短網址；也可直接在儀表板「簡訊短網址設定」填寫（存於本機瀏覽器，優先於此處）
-const SMS_LINK_DEFAULT={airway_pre:'',airway_post:'',airway:'',sim_airway:'',trm:'',shock:'',cvc:''};
+const SMS_LINK_DEFAULT={airway_pre:'https://reurl.cc/90ANvV',airway_post:'https://reurl.cc/90ANvV',airway:'https://reurl.cc/90ANvV',sim_airway:'https://reurl.cc/7YAQ7b',trm:'https://reurl.cc/NO8dG9',shock:'',cvc:'https://reurl.cc/XxrMq7'};
 const SMS_TARGETS=[
   ['airway_pre','急性呼吸道－課前','airway.html?c=airway_pre'],
   ['airway_post','急性呼吸道－課後','airway.html?c=airway_post'],
@@ -548,7 +548,7 @@ const SMS_TARGETS=[
   ['shock','休克處置','index.html?c=shock'],
   ['cvc','中央靜脈導管置入','index.html?c=cvc']];
 const SMS_NAME={airway:'呼吸道',sim_airway:'擬真呼吸道',trm:'TRM',shock:'休克',cvc:'CVC'};
-let SMS_LINK=(()=>{try{return {...SMS_LINK_DEFAULT,...JSON.parse(ls.get('ems_sms_links')||'{}')};}catch(e){return {...SMS_LINK_DEFAULT};}})();
+let SMS_LINK=(()=>{const o={...SMS_LINK_DEFAULT};try{Object.entries(JSON.parse(ls.get('ems_sms_links')||'{}')).forEach(([k,v])=>{if(clean(v))o[k]=clean(v);});}catch(e){}return o;})();
 const smsFull=k=>{const t=SMS_TARGETS.find(x=>x[0]===k);return t?new URL(t[2],location.href).href:'';};
 function smsText(s,a){
   const miss=s.course.forms.filter(fk=>!a.done[fk]);
