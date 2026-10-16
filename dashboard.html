@@ -513,7 +513,9 @@ function prepareCheckin(){
     if(best){best.a.done[f.key]={...r,late:dayDiff(best.s.date,r.date)};used.add(r);}
   }));
   // responses without a sign-in → nearest session of that course
-  FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date).forEach(r=>{
+  // (skip duplicates: the same person already has this form matched on a signed-in session)
+  const isDup=(fk,r)=>SESS.some(s=>s.course.forms.includes(fk)&&s.att.some(a=>a.done[fk]&&((r.id&&a.id&&r.id===a.id)||(r.name&&a.name&&r.name===a.name))));
+  FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date&&!isDup(f.key,r)).forEach(r=>{
     let best=null; SESS.filter(s=>s.course.forms.includes(f.key)).forEach(s=>{const [lo,hi]=win(f.key,s.date);if(r.date>=lo&&r.date<=hi&&(!best||Math.abs(dayDiff(s.date,r.date))<Math.abs(dayDiff(best.date,r.date))))best=s;});
     if(best)(best.orph[f.key]=best.orph[f.key]||[]).push(r);
   }));
