@@ -254,6 +254,16 @@ tr.sel td{background:var(--yellow-l)}
 .orph{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 select.trk,input.trk-note{border:2px solid var(--ink);border-radius:6px;padding:4px 8px;font-size:12.5px;background:#fff;font-family:inherit}
 input.trk-note{min-width:140px}
+.btn.sms{padding:4px 10px;font-size:12.5px;color:var(--red);border-width:2px}
+.btn.sms:hover{background:#F7E1DF}
+.btn.sms.over{color:#fff;background:var(--red);border-color:var(--red)}
+.sms-cfg{margin-top:12px;padding-top:12px;border-top:2px dashed var(--ink);display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px 18px}
+.sms-cfg .row{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.sms-cfg .row b{font-size:13px}
+.sms-cfg .row .ln{display:flex;gap:6px;align-items:center}
+.sms-cfg input{flex:1;min-width:0;border:2px solid var(--ink);border-radius:6px;padding:4px 8px;font-size:12.5px;background:#fff;font-family:inherit}
+.sms-cfg .full{color:var(--muted);font-size:11.5px;word-break:break-all}
+.sms-cfg .ok{color:var(--up)}.sms-cfg .warn{color:var(--down)}
 #flash{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:9px 18px;border-radius:6px;border:2px solid var(--yellow);font-size:13.5px;font-weight:700;opacity:0;transition:all .2s;z-index:70;pointer-events:none}
 #flash.on{opacity:1;transform:translateX(-50%)}
 #flash.bad{background:var(--red)}
@@ -525,6 +535,40 @@ function sessionsTable(list,limit){
 }
 const statusSel=(a)=>`<select class="trk" data-tk="${esc(a.key)}"><option value="" ${!a.trk.status?'selected':''}>未處理</option><option ${a.trk.status==='已提醒'?'selected':''}>已提醒</option><option ${a.trk.status==='免填'?'selected':''}>免填</option></select>`;
 const noteIn=(a)=>`<input class="trk-note" data-tk="${esc(a.key)}" value="${esc(a.trk.note||'')}" placeholder="備註">`;
+/* ---------- 簡訊提醒（56 字內） ---------- */
+const SMS_MAX=56;
+// 各問卷的預設短網址；也可直接在儀表板「簡訊短網址設定」填寫（存於本機瀏覽器，優先於此處）
+const SMS_LINK_DEFAULT={airway_pre:'https://reurl.cc/90ANvV',airway_post:'https://reurl.cc/90ANvV',airway:'https://reurl.cc/90ANvV',sim_airway:'https://reurl.cc/7YAQ7b',trm:'https://reurl.cc/NO8dG9',shock:'',cvc:'https://reurl.cc/XxrMq7'};
+const SMS_TARGETS=[
+  ['airway_pre','急性呼吸道－課前','airway.html?c=airway_pre'],
+  ['airway_post','急性呼吸道－課後','airway.html?c=airway_post'],
+  ['airway','急性呼吸道－課前後皆未填（選擇頁）','airway.html'],
+  ['sim_airway','擬真 1.0 急性呼吸道','index.html?c=sim_airway'],
+  ['trm','TRM 急救高效團隊','index.html?c=trm'],
+  ['shock','休克處置','index.html?c=shock'],
+  ['cvc','中央靜脈導管置入','index.html?c=cvc']];
+const SMS_NAME={airway:'呼吸道',sim_airway:'擬真呼吸道',trm:'TRM',shock:'休克',cvc:'CVC'};
+let SMS_LINK=(()=>{const o={...SMS_LINK_DEFAULT};try{Object.entries(JSON.parse(ls.get('ems_sms_links')||'{}')).forEach(([k,v])=>{if(clean(v))o[k]=clean(v);});}catch(e){}return o;})();
+const smsFull=k=>{const t=SMS_TARGETS.find(x=>x[0]===k);return t?new URL(t[2],location.href).href:'';};
+function smsText(s,a){
+  const miss=s.course.forms.filter(fk=>!a.done[fk]);
+  const lk=miss.length===1?miss[0]:s.course.key;
+  const link=clean(SMS_LINK[lk])||smsFull(lk)||smsFull(miss[0]);
+  const md=`${+s.date.slice(5,7)}/${+s.date.slice(8,10)}`;
+  const name=SMS_NAME[s.course.key]||s.course.name;
+  const what=s.course.key==='airway'?(miss.length>1?'課前後':FORM_LABEL[miss[0]]):'課程';
+  return `${link} 提醒您尚未完成${md}${name}${what}問卷，敬請撥冗完成。謝謝!`;
+}
+const smsLen=t=>[...t].length;
+function smsBtn(s,a){const t=smsText(s,a),n=smsLen(t),over=n>SMS_MAX;
+  return `<button class="btn sms no-print${over?' over':''}" data-sms="${esc(a.key)}" data-tip="${esc(`${t}\n\n共 ${n} 字${over?`（超過 ${SMS_MAX} 字，請先設定短網址）`:''}\n點一下複製`)}">✉ 複製簡訊</button>`;}
+function smsCfgTile(){
+  return `<div class="sms-cfg">${SMS_TARGETS.map(([k,l])=>{const v=clean(SMS_LINK[k]);return `<div class="row"><b>${esc(l)}</b>
+    <div class="ln"><input class="sms-link" data-k="${k}" value="${esc(v)}" placeholder="貼上短網址，如 https://reurl.cc/XXXXXX"><button class="btn" style="color:var(--navy);padding:4px 10px;font-size:12px" data-full="${k}">複製原網址</button></div>
+    <span class="full">原網址：${esc(smsFull(k))}　${v?'<span class="ok">✓ 已設定</span>':'<span class="warn">未設定（簡訊會用原網址，可能超過 56 字）</span>'}</span></div>`;}).join('')}
+    <div class="muted" style="font-size:12px;grid-column:1/-1">做法：按「複製原網址」→ 到 <a href="https://reurl.cc/" target="_blank" rel="noopener">reurl.cc</a> 縮短 → 把短網址貼回上方欄位（自動儲存於此瀏覽器）。</div></div>`;
+}
+
 function formChips(s,a){return s.course.forms.map(fk=>a.done[fk]?`<span class="chip ok" data-tip="${esc(`${FORM_LABEL[fk]}已填\n${a.done[fk].time}`)}">✓ ${FORM_LABEL[fk]}</span>`:`<span class="chip no">✕ ${FORM_LABEL[fk]}</span>`).join(' ');}
 
 function pageTrack(){
@@ -537,7 +581,8 @@ function pageTrack(){
   let h=`<div class="tile t-12 cream"><div class="trk-bar">
       <label>課程 <select id="tCourse"><option value="">全部課程</option>${courses.map(c=>`<option value="${c.key}" ${UI.tcourse===c.key?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
       <div class="seg" id="tUnit">${[['','全部'],['PGY','PGY'],['UGY','UGY']].map(([v,l],i)=>`<button data-v="${v}" class="${UI.unit===v?'on':''} ${i===2?'alt':''}">${l}</button>`).join('')}</div>
-      <span class="muted" style="font-size:12.5px">比對方式：人事號（無則姓名）；課前問卷看上課前 7 天內，其餘看上課後 14 天內。標記「免填」不計入回收率。</span></div></div>`;
+      <span class="muted" style="font-size:12.5px">比對方式：人事號（無則姓名）；課前問卷看上課前 7 天內，其餘看上課後 14 天內。標記「免填」不計入回收率。</span>
+      <button class="btn no-print" style="color:var(--navy);margin-left:auto" id="smsCfgBtn">${UI.smsCfg?'收合簡訊設定':'簡訊短網址設定'}</button></div>${UI.smsCfg?smsCfgTile():''}</div>`;
   h+=kpi('t-3','navy','課程場次',list.length,`${list.filter(s=>s.course.forms.length).length} 場需填問卷`,'場')
     +kpi('t-3','','簽到人數',people.size,`共 ${stats.reduce((n,t)=>n+t.att.length,0)} 人次`,'人')
     +kpi('t-3','red','整體問卷回收率',need?Math.round(got/need*100):'–',`${got} / ${need} 份`,need?'%':'')
@@ -547,13 +592,13 @@ function pageTrack(){
   if(cur){const t=sStat(cur);
     h+=`<div class="tile t-12" id="sessDetail">${tileH('02',`${cur.date}　${esc(cur.course.name)}`,`簽到 ${t.att.length} 人（PGY ${t.pgy}／UGY ${t.ugy}）${t.need?`｜回收 ${t.got}/${t.need}（${Math.round(t.rate*100)}%）`:'｜本課程不需問卷'}`,
       `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap">${t.miss.length?`<button class="btn" style="color:var(--navy)" data-copy="sess">複製未填名單</button>`:''}<button class="btn" style="color:var(--navy)" id="closeSess">收合</button></div>`)}
-      <div class="tbl-scroll"><table><thead><tr><th>姓名</th><th>人事號</th><th>單位</th>${cur.course.forms.length?'<th>問卷狀態</th><th>追蹤</th><th>備註</th>':''}</tr></thead><tbody>
-      ${t.att.sort((a,b)=>(Object.keys(a.done).length-Object.keys(b.done).length)||a.name.localeCompare(b.name)).map(a=>`<tr><td>${esc(a.name)}</td><td class="num">${esc(a.id)}</td><td>${esc(a.unit)}</td>${cur.course.forms.length?`<td>${formChips(cur,a)}</td><td>${cur.course.forms.every(fk=>a.done[fk])?'<span class="muted">—</span>':statusSel(a)}</td><td>${cur.course.forms.every(fk=>a.done[fk])?'':noteIn(a)}</td>`:''}</tr>`).join('')}</tbody></table></div>
+      <div class="tbl-scroll"><table><thead><tr><th>姓名</th><th>人事號</th><th>單位</th>${cur.course.forms.length?'<th>問卷狀態</th><th>追蹤</th><th>備註</th><th class="no-print">簡訊提醒</th>':''}</tr></thead><tbody>
+      ${t.att.sort((a,b)=>(Object.keys(a.done).length-Object.keys(b.done).length)||a.name.localeCompare(b.name)).map(a=>`<tr><td>${esc(a.name)}</td><td class="num">${esc(a.id)}</td><td>${esc(a.unit)}</td>${cur.course.forms.length?`<td>${formChips(cur,a)}</td><td>${cur.course.forms.every(fk=>a.done[fk])?'<span class="muted">—</span>':statusSel(a)}</td><td>${cur.course.forms.every(fk=>a.done[fk])?'':noteIn(a)}</td><td class="no-print">${cur.course.forms.every(fk=>a.done[fk])?'':smsBtn(cur,a)}</td>`:''}</tr>`).join('')}</tbody></table></div>
       ${t.orph?`<div style="margin-top:14px"><b style="font-size:13.5px;color:var(--navy)">有填問卷但沒有簽到紀錄（${t.orph}）</b><div class="orph">${Object.entries(cur.orph).flatMap(([fk,l])=>l.map(r=>`<span class="chip">${esc(r.name)} ${esc(r.id)}・${FORM_LABEL[fk]}・${r.date.slice(5)}</span>`)).join('')}</div><div class="muted" style="font-size:12px;margin-top:4px">可能是忘記簽到或人事號打錯，可到「簽到」工作表補登。</div></div>`:''}</div>`;}
   const today=todayStr();
   h+=`<div class="tile t-12">${tileH(cur?'03':'02','待追蹤名單',`簽到了但問卷還沒填完的學員，共 ${pend.length} 人`,pend.length?`<button class="btn no-print" style="color:var(--navy)" data-copy="all">複製名單</button>`:'')}
-    ${pend.length?`<div class="tbl-scroll"><table><thead><tr><th>上課日期</th><th>課程</th><th>姓名</th><th>人事號</th><th>單位</th><th>未填</th><th class="r">已過</th><th>追蹤</th><th>備註</th></tr></thead><tbody>
-    ${pend.map(({s,a})=>`<tr><td class="num">${s.date}</td><td>${esc(s.course.name)}</td><td>${esc(a.name)}</td><td class="num">${esc(a.id)}</td><td>${esc(a.unit)}</td><td>${s.course.forms.filter(fk=>!a.done[fk]).map(fk=>`<span class="chip no">${FORM_LABEL[fk]}</span>`).join(' ')}</td><td class="r num">${dayDiff(s.date,today)} 天</td><td>${statusSel(a)}</td><td>${noteIn(a)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">目前沒有待追蹤的學員 🎉</div>'}${insPending(pend)}</div>`;
+    ${pend.length?`<div class="tbl-scroll"><table><thead><tr><th>上課日期</th><th>課程</th><th>姓名</th><th>人事號</th><th>單位</th><th>未填</th><th class="r">已過</th><th>追蹤</th><th>備註</th><th class="no-print">簡訊提醒</th></tr></thead><tbody>
+    ${pend.map(({s,a})=>`<tr><td class="num">${s.date}</td><td>${esc(s.course.name)}</td><td>${esc(a.name)}</td><td class="num">${esc(a.id)}</td><td>${esc(a.unit)}</td><td>${s.course.forms.filter(fk=>!a.done[fk]).map(fk=>`<span class="chip no">${FORM_LABEL[fk]}</span>`).join(' ')}</td><td class="r num">${dayDiff(s.date,today)} 天</td><td>${statusSel(a)}</td><td>${noteIn(a)}</td><td class="no-print">${smsBtn(s,a)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">目前沒有待追蹤的學員 🎉</div>'}${insPending(pend)}</div>`;
   return h;
 }
 function pendText(items){return items.map(({s,a})=>`${a.name}（${a.id}）｜${s.date} ${s.course.name}｜未填：${s.course.forms.filter(fk=>!a.done[fk]).map(fk=>FORM_LABEL[fk]).join('、')}`).join('\n');}
@@ -577,6 +622,14 @@ function bindTrack(){
   const cs=$('#closeSess'); if(cs) cs.onclick=()=>{UI.sess=null;const y=scrollY;render();scrollTo(0,y);};
   document.querySelectorAll('select.trk').forEach(s=>s.onchange=()=>{saveTrack(s.dataset.tk,{status:s.value});const y=scrollY;render();scrollTo(0,y);});
   document.querySelectorAll('input.trk-note').forEach(i=>i.onchange=()=>saveTrack(i.dataset.tk,{note:i.value}));
+  const sc=$('#smsCfgBtn'); if(sc) sc.onclick=()=>{UI.smsCfg=!UI.smsCfg;const y=scrollY;render();scrollTo(0,y);};
+  document.querySelectorAll('input.sms-link').forEach(i=>i.onchange=()=>{SMS_LINK[i.dataset.k]=clean(i.value);ls.set('ems_sms_links',JSON.stringify(SMS_LINK));flash('短網址已儲存');const y=scrollY;render();scrollTo(0,y);});
+  document.querySelectorAll('[data-full]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(smsFull(b.dataset.full));flash('已複製原網址');}catch(e){flash('無法複製',true);}});
+  document.querySelectorAll('[data-sms]').forEach(b=>b.onclick=async()=>{
+    const x=ATT[b.dataset.sms]; if(!x) return;
+    const t=smsText(x.s,x.a),n=smsLen(t);
+    try{await navigator.clipboard.writeText(t);flash(n>SMS_MAX?`已複製（${n} 字，超過 ${SMS_MAX} 字！）`:`已複製簡訊（${n} 字）`,n>SMS_MAX);}catch(e){flash('無法複製',true);}
+  });
   document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{
     const list=sessFiltered(UI.tcourse);
     const items=b.dataset.copy==='sess'?(()=>{const s=list.find(x=>x.key===UI.sess);return sStat(s).miss.map(a=>({s,a}));})():list.flatMap(s=>sStat(s).miss.map(a=>({s,a})));
