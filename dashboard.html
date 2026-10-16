@@ -251,6 +251,7 @@ tr.sel td{background:var(--yellow-l)}
 .chip{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:1px 8px;background:var(--soft);color:var(--ink);white-space:nowrap}
 .chip.ok{background:#DCEFE2;color:#1F5A3A}
 .chip.no{background:#F7E1DF;color:var(--red)}
+.chip small{font-size:10.5px;font-weight:700;opacity:.8}
 .orph{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 select.trk,input.trk-note{border:2px solid var(--ink);border-radius:6px;padding:4px 8px;font-size:12.5px;background:#fff;font-family:inherit}
 input.trk-note{min-width:140px}
@@ -501,6 +502,16 @@ function prepareCheckin(){
       c.sort((x,y)=>Math.abs(dayDiff(s.date,x.date))-Math.abs(dayDiff(s.date,y.date)));
       a.done[fk]=c[0]; used.add(c[0]);
     });}));
+  // late responses (e.g. after an SMS reminder) → the same person's most recent session of that course still missing this form
+  FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date).sort((x,y)=>x.date<y.date?-1:1).forEach(r=>{
+    let best=null;
+    SESS.filter(s=>s.course.forms.includes(f.key)&&s.date<=r.date).forEach(s=>s.att.forEach(a=>{
+      if(a.done[f.key]) return;
+      const hit=(r.id&&a.id&&r.id===a.id)||(r.name&&a.name&&r.name===a.name);
+      if(hit&&(!best||s.date>best.s.date)) best={s,a};
+    }));
+    if(best){best.a.done[f.key]={...r,late:dayDiff(best.s.date,r.date)};used.add(r);}
+  }));
   // responses without a sign-in → nearest session of that course
   FORMS.forEach(f=>(DATA[f.key]||[]).filter(r=>!used.has(r)&&r.date).forEach(r=>{
     let best=null; SESS.filter(s=>s.course.forms.includes(f.key)).forEach(s=>{const [lo,hi]=win(f.key,s.date);if(r.date>=lo&&r.date<=hi&&(!best||Math.abs(dayDiff(s.date,r.date))<Math.abs(dayDiff(best.date,r.date))))best=s;});
@@ -569,7 +580,7 @@ function smsCfgTile(){
     <div class="muted" style="font-size:12px;grid-column:1/-1">做法：按「複製原網址」→ 到 <a href="https://reurl.cc/" target="_blank" rel="noopener">reurl.cc</a> 縮短 → 把短網址貼回上方欄位（自動儲存於此瀏覽器）。</div></div>`;
 }
 
-function formChips(s,a){return s.course.forms.map(fk=>a.done[fk]?`<span class="chip ok" data-tip="${esc(`${FORM_LABEL[fk]}已填\n${a.done[fk].time}`)}">✓ ${FORM_LABEL[fk]}</span>`:`<span class="chip no">✕ ${FORM_LABEL[fk]}</span>`).join(' ');}
+function formChips(s,a){return s.course.forms.map(fk=>a.done[fk]?`<span class="chip ok" data-tip="${esc(`${FORM_LABEL[fk]}已填${a.done[fk].late!=null?`（提醒後補填，課後第 ${a.done[fk].late} 天）`:''}\n${a.done[fk].time}`)}">✓ ${FORM_LABEL[fk]}${a.done[fk].late!=null?'<small>（補填）</small>':''}</span>`:`<span class="chip no">✕ ${FORM_LABEL[fk]}</span>`).join(' ');}
 
 function pageTrack(){
   const list=sessFiltered(UI.tcourse), stats=list.map(sStat);
@@ -581,7 +592,7 @@ function pageTrack(){
   let h=`<div class="tile t-12 cream"><div class="trk-bar">
       <label>課程 <select id="tCourse"><option value="">全部課程</option>${courses.map(c=>`<option value="${c.key}" ${UI.tcourse===c.key?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
       <div class="seg" id="tUnit">${[['','全部'],['PGY','PGY'],['UGY','UGY']].map(([v,l],i)=>`<button data-v="${v}" class="${UI.unit===v?'on':''} ${i===2?'alt':''}">${l}</button>`).join('')}</div>
-      <span class="muted" style="font-size:12.5px">比對方式：人事號（無則姓名）；課前問卷看上課前 7 天內，其餘看上課後 14 天內。標記「免填」不計入回收率。</span>
+      <span class="muted" style="font-size:12.5px">比對方式：人事號（無則姓名）；課前問卷看上課前 7 天內，其餘看上課後 14 天內；超過期限才補填的，會自動配回該學員最近一次未填的同課程場次（標示「補填」）。標記「免填」不計入回收率。</span>
       <button class="btn no-print" style="color:var(--navy);margin-left:auto" id="smsCfgBtn">${UI.smsCfg?'收合簡訊設定':'簡訊短網址設定'}</button></div>${UI.smsCfg?smsCfgTile():''}</div>`;
   h+=kpi('t-3','navy','課程場次',list.length,`${list.filter(s=>s.course.forms.length).length} 場需填問卷`,'場')
     +kpi('t-3','','簽到人數',people.size,`共 ${stats.reduce((n,t)=>n+t.att.length,0)} 人次`,'人')
