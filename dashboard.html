@@ -795,8 +795,6 @@ const THEMES=[
   ['技術細節',['解剖','無菌','插管','導管','穿刺','定位','技巧']]
 ];
 function themesOf(text){const t=text.toLowerCase();return THEMES.filter(([,ws])=>ws.some(w=>t.includes(w))).map(([n])=>n);}
-function markKw(text){let h=esc(text);const ws=THEMES.flatMap(([,w])=>w).sort((a,b)=>b.length-a.length);
-  const re=new RegExp('('+ws.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');return h.replace(re,'<mark>$1</mark>');}
 const isBlank=v=>/^(無|沒有|沒|nil|none|na|n\/a|-|～|~|無意見|暫無|目前沒有|no)$/i.test(v.trim());
 
 /* ---------- chart builders ---------- */
@@ -958,10 +956,10 @@ function qualTile(fk,no,title){
   const allTh={}; blocks.forEach(b=>b.ans.forEach(x=>themesOf(x.v).forEach(t=>allTh[t]=(allTh[t]||0)+1)));
   const allTop=Object.entries(allTh).sort((a,b)=>b[1]-a[1]).slice(0,3);
   const totalAns=blocks.reduce((n,b)=>n+b.ans.length,0);
-  return `<div class="tile t-12">${tileH(no,title,`共 ${ts.length} 題、${totalAns} 則有效回覆（已略過「無」等空白回覆）；標示色塊為系統偵測的主題關鍵詞`)}
+  return `<div class="tile t-12">${tileH(no,title,`共 ${ts.length} 題、${totalAns} 則有效回覆（已略過「無」等空白回覆）；「常見主題」為系統依關鍵詞歸納`)}
     ${blocks.map(b=>`<details class="qblock" open><summary><span class="qno">Q${b.qi+1}</span><span class="qtx">${esc(b.q)}</span><span class="qmeta">${b.ans.length} 則</span></summary>
       ${b.top.length?`<div class="qthemes">常見主題：${b.top.map(([t,c])=>`<span class="chip ok">${t} ${c}</span>`).join(' ')}</div>`:''}
-      <div class="quotes">${b.ans.length?b.ans.map(x=>`<div class="quote"><div class="txt">${markKw(x.v)}</div><div class="who">${esc(roleOf(x.r))}<span>${x.r.date}</span></div></div>`).join(''):'<div class="empty">此期間沒有回覆</div>'}</div>
+      <div class="quotes">${b.ans.length?b.ans.map(x=>`<div class="quote"><div class="txt">${esc(x.v)}</div><div class="who">${esc(roleOf(x.r))}<span>${x.r.date}</span></div></div>`).join(''):'<div class="empty">此期間沒有回覆</div>'}</div>
       ${b.ans.length?insight([`${b.ans.length} 則回覆${b.top.length?`，最常提到「${b.top[0][0]}」（${b.top[0][1]} 則${b.top[1]?`）與「${b.top[1][0]}」（${b.top[1][1]} 則`:''}）`:''}。`,b.blank?`另有 ${b.blank} 位學員未作答或填「無」。`:'']):''}
     </details>`).join('')}
     ${allTop.length?insight([`綜合所有題目，學員最常提及的主題為 ${allTop.map(([t,c])=>`「${t}」（${c} 則）`).join('、')}。`,
